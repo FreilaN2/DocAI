@@ -1,0 +1,72 @@
+# =====================
+# PYTHON — Backend
+# =====================
+
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Distribuciones / builds
+dist/
+build/
+*.egg-info/
+
+# Variables de entorno (¡contiene la API Key!)
+.env
+.env.*
+
+# =====================
+# NODE — Frontend
+# =====================
+
+# Dependencias
+node_modules/
+
+# Build de producción
+frontend/dist/
+frontend/.vite/
+
+# Logs de npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =====================
+# PROYECTO — DocAI
+# =====================
+
+# Archivos subidos por usuarios
+backend/uploads/
+
+# Archivos procesados/generados
+backend/processed/
+
+# Documentos de prueba generados localmente
+backend/*.docx
+
+# =====================
+# SISTEMA OPERATIVO
+# =====================
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
+.DS_Store
+
+# =====================
+# IDEs y Editores
+# =====================
+
+.vscode/
+.idea/
+*.suo
+*.swp
+*.swo

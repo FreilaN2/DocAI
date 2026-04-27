@@ -1,0 +1,33 @@
+# =============================================
+# DocAI - Backend Dependencies
+# =============================================
+# Para instalar todo: pip install -r requirements.txt
+# Versión de Python recomendada: 3.12+
+
+# --- Servidor Web ---
+fastapi==0.136.1          # Framework principal de la API
+uvicorn==0.46.0           # Servidor ASGI para correr FastAPI
+python-multipart==0.0.22  # Soporte para subida de archivos (multipart/form-data)
+
+# --- Base de Datos ---
+SQLAlchemy==2.0.49        # ORM para gestión de la base de datos
+PyMySQL==1.1.2            # Conector MySQL para SQLAlchemy (compatible con XAMPP)
+cryptography==46.0.5      # Requerido por PyMySQL para conexiones seguras
+
+# --- Autenticación y Seguridad ---
+passlib==1.7.4            # Hashing de contraseñas
+bcrypt==4.0.1             # Backend de encriptación bcrypt (versión compatible con passlib)
+python-jose==3.5.0        # Generación y validación de tokens JWT
+
+# --- Procesamiento de Documentos Word ---
+python-docx==1.2.0        # Leer y escribir archivos .docx
+lxml==6.1.0               # Dependencia de python-docx para parseo XML
+
+# --- Inteligencia Artificial ---
+groq==1.2.0               # Cliente oficial de la API de Groq (Llama 3.3 70B)
+
+# --- Utilidades ---
+python-dotenv==1.2.2      # Cargar variables de entorno desde .env
+tenacity==9.1.4           # Reintentos con backoff exponencial (usado en apa_ai.py)
+pydantic==2.13.3          # Validación de datos y modelos de request/response
+requests==2.32.5          # Peticiones HTTP

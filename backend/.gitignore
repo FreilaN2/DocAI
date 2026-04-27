@@ -1,0 +1,24 @@
+# Entorno virtual (cada colaborador crea el suyo)
+venv/
+env/
+.venv/
+
+# Variables de entorno (contiene la API Key de Groq, NO compartir)
+.env
+
+# Archivos temporales del procesador
+uploads/
+processed/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Editor
+.vscode/
+.idea/
