@@ -52,7 +52,7 @@ Activar el entorno:
 ### 2. Instalar dependencias
 
 ```bash
-pip install fastapi uvicorn python-multipart python-dotenv python-docx google-genai
+pip install -r requirements.txt
 ```
 
 | Paquete              | Versión recomendada | Función                                                  |
@@ -69,7 +69,12 @@ pip install fastapi uvicorn python-multipart python-dotenv python-docx google-ge
 Edita el archivo `backend/.env` con tu API Key:
 
 ```env
-GEMINI_API_KEY=TU_API_KEY_AQUI
+GROQ_API_KEY
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=
+DB_NAME=docai_db
+DB_PORT=3306
 ```
 
 ### 4. Correr el servidor
