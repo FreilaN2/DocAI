@@ -1,11 +1,25 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 
 export default function Landing() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        const plan = user.plan === 'pro' ? 'pro' : 'free';
+        navigate(`/editor/${plan}`, { replace: true });
+      } catch (e) {
+        // Ignorar si el JSON es inválido
+      }
+    }
+  }, [navigate]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -61,10 +75,10 @@ export default function Landing() {
           </motion.p>
           
           <motion.div variants={itemVariants} className="flex flex-col md:flex-row items-center gap-4 mt-8">
-            <Link to="/editor/pro" className="bg-primary-container text-white font-bold px-8 py-4 rounded-btn shadow-[0_4px_14px_0_rgba(255,107,0,0.39)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.23)] hover:-translate-y-1 transition-all duration-200 active:scale-95 no-underline">
+            <Link to="/upgrade" className="bg-primary-container text-white font-bold px-8 py-4 rounded-btn shadow-[0_4px_14px_0_rgba(255,107,0,0.39)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.23)] hover:-translate-y-1 transition-all duration-200 active:scale-95 no-underline">
               {t('landing.cta_pro')}
             </Link>
-            <Link to="/editor/free" className="bg-white/70 backdrop-blur-lg text-on-surface font-bold px-8 py-4 rounded-btn border border-outline hover:bg-surface-container-low transition-all duration-200 active:scale-95 no-underline">
+            <Link to="/login" className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg text-on-surface font-bold px-8 py-4 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-all duration-200 active:scale-95 no-underline">
               {t('landing.cta_free')}
             </Link>
           </motion.div>
@@ -82,7 +96,7 @@ export default function Landing() {
             <motion.div 
               variants={itemVariants}
               whileHover={{ y: -5 }}
-              className="bg-white/70 backdrop-blur-[20px] rounded-card border border-slate-200 p-8 flex flex-col shadow-sm relative z-10"
+              className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-[20px] rounded-card border border-slate-200 dark:border-outline-variant/30 p-8 flex flex-col shadow-sm relative z-10"
             >
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-on-surface">{t('landing.plan_starter')}</h3>
@@ -100,7 +114,7 @@ export default function Landing() {
                   <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_limited')}
                 </li>
               </ul>
-              <Link to="/editor/free" className="w-full text-center bg-white text-on-surface font-bold px-4 py-3 rounded-btn border border-outline hover:bg-surface-container-low transition-colors no-underline">
+              <Link to="/login" className="w-full text-center bg-white dark:bg-surface text-on-surface font-bold px-4 py-3 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors no-underline">
                 {t('landing.cta_free')}
               </Link>
             </motion.div>
@@ -109,7 +123,7 @@ export default function Landing() {
             <motion.div 
               variants={itemVariants}
               whileHover={{ y: -10 }}
-              className="bg-white/90 backdrop-blur-[24px] rounded-card border-2 border-primary-container p-8 flex flex-col shadow-xl relative z-20 transform md:-translate-y-4"
+              className="bg-white/90 dark:bg-[#1a1512]/90 backdrop-blur-[24px] rounded-card border-2 border-primary-container p-8 flex flex-col shadow-xl relative z-20 transform md:-translate-y-4"
             >
               <div className="absolute -top-4 right-8 bg-primary-container text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-md">
                 {t('landing.most_popular')}
@@ -133,7 +147,7 @@ export default function Landing() {
                   <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_toc')}
                 </li>
               </ul>
-              <Link to="/editor/pro" className="w-full text-center bg-primary-container text-white font-bold px-4 py-3 rounded-btn shadow-lg hover:opacity-90 transition-all no-underline">
+              <Link to="/upgrade" className="w-full text-center bg-primary-container text-white font-bold px-4 py-3 rounded-btn shadow-lg hover:opacity-90 transition-all no-underline">
                 {t('landing.cta_pro')}
               </Link>
             </motion.div>
@@ -141,9 +155,9 @@ export default function Landing() {
         </section>
       </motion.main>
       
-      <footer className="w-full py-12 bg-white border-t border-slate-100 text-xs text-slate-500">
+      <footer className="w-full py-12 bg-white dark:bg-[#110e0c] border-t border-slate-100 dark:border-outline-variant/30 text-xs text-slate-500 dark:text-on-surface-variant transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="font-bold text-slate-900 text-sm">DocAI</div>
+          <div className="font-bold text-slate-900 dark:text-on-surface text-sm">DocAI</div>
           <div>© 2024 DocAI. Precision academic formatting powered by AI.</div>
         </div>
       </footer>

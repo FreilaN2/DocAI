@@ -35,7 +35,15 @@
     "correction_subtitle": "Verifica las etiquetas antes de descargar",
     "confirm": "Confirmar y Descargar",
     "rebuilding": "Generando documento...",
-    "watermark_notice": "Nota: La versión gratuita incluye una marca de agua."
+    "watermark_notice": "Nota: La versión gratuita incluye una marca de agua.",
+    "tokens_available": "Tokens Disponibles",
+    "tokens_monthly": "mensuales",
+    "tokens_extra": "extra",
+    "tokens_renewal": "Renovación: ",
+    "apa_6th": "Normas APA 6ta Edición",
+    "apa_7th": "Normas APA 7ma Edición",
+    "drag_drop": "O arrastra tu archivo aquí",
+    "drop_here": "¡Suéltalo aquí!"
   },
   "navbar": {
     "home": "Inicio",
@@ -43,7 +51,13 @@
     "pricing": "Precios",
     "docs": "Docs",
     "login": "Ingresar",
-    "get_started": "Empezar"
+    "get_started": "Empezar",
+    "hello": "Hola, ",
+    "logout_title": "Cerrar Sesión",
+    "logout_confirm_title": "¿Cerrar sesión?",
+    "logout_confirm_desc": "Tendrás que volver a ingresar tus credenciales para acceder a la herramienta.",
+    "cancel": "Cancelar",
+    "yes_logout": "Sí, salir"
   },
   "auth": {
     "login_title": "Bienvenido de nuevo",
@@ -60,5 +74,14 @@
     "have_account": "¿Ya tienes cuenta?",
     "switch_register": "Regístrate aquí",
     "switch_login": "Inicia sesión aquí"
+  },
+  "payment": {
+    "processing": "Procesando tu pago...",
+    "wait": "Por favor espera un momento.",
+    "success_title": "¡Listo!",
+    "success_desc": "¡Pago confirmado!",
+    "go_pro": "Ir al Editor Pro →",
+    "error_title": "Algo salió mal",
+    "back_upgrade": "Volver a Upgrade"
   }
 }

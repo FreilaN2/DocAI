@@ -1,22 +1,27 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, DECIMAL, TIMESTAMP, text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, DECIMAL, TIMESTAMP, Enum, text
 from sqlalchemy.orm import relationship
 from .database import Base
-import datetime
 
+# ─────────────────────────────────────────────
+# PLANES
+# ─────────────────────────────────────────────
 class Plan(Base):
     __tablename__ = "plans"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), nullable=False)
-    price = Column(DECIMAL(10, 2), default=0.00)
-    max_docs_per_month = Column(Integer, default=3)
+    name = Column(String(50), nullable=False)           # 'free', 'pro'
+    price = Column(DECIMAL(10, 2), default=0.00)        # Columna original en la BD
+    tokens_per_month = Column(Integer, default=0)        # 0 = no aplica (Free)
     has_ai_analysis = Column(Boolean, default=False)
-    has_watermark = Column(Boolean, default=True)
+    has_watermark = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
+# ─────────────────────────────────────────────
+# USUARIOS
+# ─────────────────────────────────────────────
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
@@ -26,32 +31,90 @@ class User(Base):
     plan_id = Column(Integer, ForeignKey("plans.id"), default=1)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
-    
-    plan = relationship("Plan")
 
+    plan = relationship("Plan")
+    token_balance = relationship("TokenBalance", back_populates="user", uselist=False)
+    subscriptions = relationship("Subscription", back_populates="user")
+
+# ─────────────────────────────────────────────
+# SESIONES JWT
+# ─────────────────────────────────────────────
 class UserSession(Base):
     __tablename__ = "user_sessions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token = Column(String(500), nullable=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
+# ─────────────────────────────────────────────
+# DOCUMENTOS PROCESADOS
+# ─────────────────────────────────────────────
 class ProcessedDocument(Base):
     __tablename__ = "processed_documents"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     original_filename = Column(String(255), nullable=False)
     apa_version = Column(String(10), nullable=False)
-    download_url = Column(String(500))
+    tokens_consumed = Column(Integer, default=0)         # 0 para usuarios Free
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
-class UserUsage(Base):
-    __tablename__ = "user_usage"
-    
+# ─────────────────────────────────────────────
+# SALDO DE TOKENS
+# ─────────────────────────────────────────────
+class TokenBalance(Base):
+    __tablename__ = "token_balance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    monthly_tokens = Column(Integer, default=0)    # Tokens del mes actual (se resetean)
+    extra_tokens = Column(Integer, default=0)      # Tokens de packs extra (no caducan)
+    last_reset_at = Column(DateTime, nullable=True)
+    next_reset_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="token_balance")
+
+# ─────────────────────────────────────────────
+# TRANSACCIONES DE TOKENS
+# ─────────────────────────────────────────────
+class TokenTransaction(Base):
+    __tablename__ = "token_transactions"
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    month_year = Column(String(7), nullable=False) # '2024-04'
-    docs_count = Column(Integer, default=0)
+    tokens_consumed = Column(Integer, nullable=False)
+    document_name = Column(String(255))
+    source = Column(Enum('monthly', 'extra', name='token_source'), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+
+# ─────────────────────────────────────────────
+# SUSCRIPCIONES PAGADAS
+# ─────────────────────────────────────────────
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    paypal_order_id = Column(String(100), nullable=False)
+    months_paid = Column(Integer, nullable=False)          # 1, 3, 6 o 12
+    tokens_per_month = Column(Integer, nullable=False)     # tokens asignados por mes
+    started_at = Column(DateTime, nullable=False)
+    ends_at = Column(DateTime, nullable=False)
+    status = Column(Enum('active', 'expired', 'cancelled', name='sub_status'), default='active')
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+
+    user = relationship("User", back_populates="subscriptions")
+
+# ─────────────────────────────────────────────
+# CATÁLOGO DE PAQUETES DE TOKENS
+# ─────────────────────────────────────────────
+class TokenPack(Base):
+    __tablename__ = "token_packs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    price = Column(DECIMAL(10, 2), nullable=False)
+    tokens = Column(Integer, nullable=False)
+    is_active = Column(Boolean, default=True)

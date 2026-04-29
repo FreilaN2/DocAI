@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -7,19 +8,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        "primary-container": "#ff6b00",
-        "on-primary": "#ffffff",
-        "background": "#fff8f6",
-        "on-background": "#261812",
-        "surface": "#fff8f6",
-        "on-surface": "#261812",
-        "surface-container-high": "#fee3d8",
-        "surface-container-low": "#fff1eb",
-        "surface-variant": "#f8ddd2",
-        "primary": "#a04100",
-        "outline": "#8e7164",
-        "outline-variant": "#e2bfb0",
-        "on-surface-variant": "#5a4136",
+        "primary-container": "var(--primary-container)",
+        "on-primary": "var(--on-primary)",
+        "background": "var(--background)",
+        "on-background": "var(--on-background)",
+        "surface": "var(--surface)",
+        "on-surface": "var(--on-surface)",
+        "surface-container-high": "var(--surface-container-high)",
+        "surface-container-low": "var(--surface-container-low)",
+        "surface-variant": "var(--surface-variant)",
+        "primary": "var(--primary)",
+        "outline": "var(--outline)",
+        "outline-variant": "var(--outline-variant)",
+        "on-surface-variant": "var(--on-surface-variant)",
       },
       borderRadius: {
         "card": "24px",

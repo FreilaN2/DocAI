@@ -18,9 +18,20 @@ from core.apa_rules import procesar_con_reglas
 from core.apa_ai import procesar_con_ia
 from core.auth import get_password_hash, verify_password, create_access_token
 from core.database import get_db
-from core.models import User, Plan
+from core.models import User, Plan, TokenBalance
+from core.token_service import (
+    get_available_tokens,
+    consume_tokens,
+    groq_tokens_to_docai,
+    assign_monthly_tokens,
+    add_extra_tokens,
+)
+from core.paypal import create_order, capture_order
 from sqlalchemy.orm import Session
 from fastapi import Depends
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from core.auth import SECRET_KEY, ALGORITHM
 import logging
 
 # Configurar logging
@@ -40,6 +51,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="No se pudieron validar las credenciales",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
 
 # Inicializar base de datos al arrancar
 @app.on_event("startup")
@@ -158,7 +189,16 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     
     # Crear token de acceso
     access_token = create_access_token(data={"sub": new_user.email})
-    return {"status": "success", "access_token": access_token, "token_type": "bearer", "user": {"email": new_user.email, "firstName": new_user.first_name}}
+    return {
+        "status": "success", 
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "user": {
+            "email": new_user.email, 
+            "firstName": new_user.first_name,
+            "plan": new_user.plan.name if new_user.plan else "free"
+        }
+    }
 
 @app.post("/login")
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
@@ -167,7 +207,16 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
     
     access_token = create_access_token(data={"sub": user.email})
-    return {"status": "success", "access_token": access_token, "token_type": "bearer", "user": {"email": user.email, "firstName": user.first_name}}
+    return {
+        "status": "success", 
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "user": {
+            "email": user.email, 
+            "firstName": user.first_name,
+            "plan": user.plan.name if user.plan else "free"
+        }
+    }
 
 def añadir_marca_de_agua(doc):
     """Añade una marca de agua en el pie de página para el plan Free"""
@@ -214,7 +263,9 @@ async def procesar_documento(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...), 
     edicion: str = Form("7ma"), 
-    plan: str = Form("free")
+    plan: str = Form("free"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     # Ejecutar limpieza en segundo plano
     background_tasks.add_task(limpiar_archivos_antiguos)
@@ -241,22 +292,45 @@ async def procesar_documento(
         logger.error(f"❌ Error al abrir .docx con BytesIO: {e}")
         raise HTTPException(status_code=400, detail=f"No se pudo procesar el contenido del archivo .docx: {str(e)}")
     
-    logger.info(f"🚀 Iniciando procesamiento de documento: {file.filename} (Plan: {plan}, Edición: {edicion})")
-    
+    logger.info(f"🚀 Procesando: {file.filename} (Plan: {plan}, Edición: {edicion}, Usuario: {current_user.id})")
+
     if plan == "pro":
-        logger.info("🤖 Usando motor de IA (Gemini)")
+        # ── Verificar tokens disponibles ──────────────────────────────────
+        balance = get_available_tokens(current_user.id, db)
+        if balance["total"] <= 0:
+            raise HTTPException(status_code=402, detail="No tienes tokens disponibles. Por favor, actualiza tu plan o compra un paquete.")
+            
+        logger.info("🤖 Usando motor de IA (Groq Llama 3.3)")
         resultado = procesar_con_ia(doc.paragraphs)
-    else:
-        logger.info("⚖️ Usando motor de reglas heurísticas")
-        resultado = procesar_con_reglas(doc.paragraphs)
         
-    logger.info(f"✅ Procesamiento finalizado. Párrafos procesados: {len(resultado['detalles'])}")
+        # Consumir tokens
+        groq_tokens = resultado.get('groq_tokens', 0)
+        docai_tokens = groq_tokens_to_docai(groq_tokens)
+        consume_tokens(current_user.id, groq_tokens, file.filename, db)
+        
+        logger.info(f"💡 Tokens consumidos: {docai_tokens} DocAI tokens ({groq_tokens} Groq)")
+    else:
+        logger.info("⚖️ Usando motor de reglas (Free — sin IA)")
+        resultado = procesar_con_reglas(doc.paragraphs)
+        resultado["groq_tokens"] = 0
+
+    logger.info(f"✅ Procesamiento finalizado. Párrafos: {len(resultado['detalles'])}")
     return {
-        "status": "success", 
+        "status": "success",
         "plan": plan,
-        "resumen": resultado["stats"], 
-        "detalles": resultado["detalles"]
+        "resumen": resultado["stats"],
+        "detalles": resultado["detalles"],
+        "tokens_consumed": groq_tokens_to_docai(resultado.get("groq_tokens", 0)),
     }
+
+@app.get("/tokens/balance")
+async def mis_tokens(
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    """Retorna el saldo actual de tokens del usuario."""
+    balance = get_available_tokens(current_user.id, db)
+    return {"status": "success", **balance}
 
 @app.post("/generar-final/")
 async def generar_final(datos: DatosFinales):
@@ -310,7 +384,7 @@ async def generar_final(datos: DatosFinales):
         configurar_parrafo_estilo(paragraph, p.categoria, reglas)
 
     if datos.plan == "free":
-        añadir_marca_de_agua(doc)
+        pass  # Sin marca de agua en ningún plan
 
     doc.save(output_path)
     file_id = str(hash(output_path))
@@ -323,3 +397,182 @@ async def descargar_archivo(file_id: str):
     if path and os.path.exists(path):
         return FileResponse(path=path, filename=os.path.basename(path))
     raise HTTPException(status_code=404, detail="No encontrado")
+
+
+# ═══════════════════════════════════════════════════════════
+# ENDPOINTS DE PAGO — PAYPAL
+# ═══════════════════════════════════════════════════════════
+
+# Precios de suscripción por duración
+SUBSCRIPTION_PRICES = {
+    1:  12.00,
+    3:  33.00,   # $11/mes
+    6:  60.00,   # $10/mes
+    12: 108.00,  # $9/mes
+}
+TOKENS_PER_MONTH_PRO = 1000
+
+class SuscripcionRequest(BaseModel):
+    months: int  # 1, 3, 6 o 12
+
+class ConfirmarPagoRequest(BaseModel):
+    order_id: str
+    months: int
+
+class PackRequest(BaseModel):
+    pack_id: int
+
+class ConfirmarPackRequest(BaseModel):
+    order_id: str
+    pack_id: int
+
+@app.post("/pago/suscripcion")
+async def crear_orden_suscripcion(
+    data: SuscripcionRequest, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Crea una orden PayPal para suscripción Pro."""
+    if data.months not in SUBSCRIPTION_PRICES:
+        raise HTTPException(status_code=400, detail="Duración no válida. Usa 1, 3, 6 o 12.")
+
+    amount = SUBSCRIPTION_PRICES[data.months]
+    description = f"DocAI Pro — {data.months} mes(es) | {TOKENS_PER_MONTH_PRO} tokens/mes"
+    custom_id = f"sub:{current_user.id}:{data.months}"
+
+    try:
+        order = create_order(amount=amount, description=description, custom_id=custom_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error con PayPal: {str(e)}")
+
+    return {
+        "status": "success",
+        "order_id": order["order_id"],
+        "approval_url": order["approval_url"],
+        "amount": amount,
+        "months": data.months,
+    }
+
+
+@app.post("/pago/confirmar-suscripcion")
+async def confirmar_suscripcion(
+    data: ConfirmarPagoRequest, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Captura el pago y activa la suscripción Pro del usuario."""
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+    from core.models import Subscription
+
+    try:
+        result = capture_order(data.order_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error capturando pago: {str(e)}")
+
+    if result.get("status") != "COMPLETED":
+        raise HTTPException(status_code=402, detail="El pago no fue completado por PayPal.")
+
+    pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+    current_user.plan_id = pro_plan.id
+
+    # Registrar suscripción
+    now = datetime.utcnow()
+    sub = Subscription(
+        user_id=current_user.id,
+        paypal_order_id=data.order_id,
+        months_paid=data.months,
+        tokens_per_month=TOKENS_PER_MONTH_PRO,
+        started_at=now,
+        ends_at=now + relativedelta(months=data.months),
+        status="active",
+    )
+    db.add(sub)
+    db.commit()
+
+    # Asignar tokens del primer mes
+    assign_monthly_tokens(current_user.id, TOKENS_PER_MONTH_PRO, db)
+
+    logger.info(f"🎉 Suscripción Pro activada: user={current_user.id}, meses={data.months}")
+    return {
+        "status": "success",
+        "message": f"Suscripción Pro activada por {data.months} mes(es).",
+        "tokens_assigned": TOKENS_PER_MONTH_PRO,
+    }
+
+
+@app.post("/pago/pack-tokens")
+async def crear_orden_pack(
+    data: PackRequest, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Crea una orden PayPal para comprar un paquete de tokens extra."""
+    from core.models import TokenPack
+
+    pack = db.query(TokenPack).filter(
+        TokenPack.id == data.pack_id, TokenPack.is_active == True
+    ).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Paquete no encontrado.")
+
+    description = f"DocAI — {pack.name} ({pack.tokens} tokens extra)"
+    custom_id = f"pack:{current_user.id}:{pack.id}"
+
+    try:
+        order = create_order(
+            amount=float(pack.price),
+            description=description,
+            custom_id=custom_id,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error con PayPal: {str(e)}")
+
+    return {
+        "status": "success",
+        "order_id": order["order_id"],
+        "approval_url": order["approval_url"],
+        "pack": {"name": pack.name, "tokens": pack.tokens, "price": float(pack.price)},
+    }
+
+
+@app.post("/pago/confirmar-pack")
+async def confirmar_pack(
+    data: ConfirmarPackRequest, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Captura el pago y añade tokens extra al usuario."""
+    from core.models import TokenPack
+
+    try:
+        result = capture_order(data.order_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error capturando pago: {str(e)}")
+
+    if result.get("status") != "COMPLETED":
+        raise HTTPException(status_code=402, detail="El pago no fue completado por PayPal.")
+
+    pack = db.query(TokenPack).filter(TokenPack.id == data.pack_id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="Paquete no encontrado.")
+
+    add_extra_tokens(current_user.id, pack.tokens, db)
+
+    logger.info(f"📦 Pack aplicado: user={current_user.id}, tokens=+{pack.tokens}")
+    return {
+        "status": "success",
+        "message": f"+{pack.tokens} tokens extra añadidos a tu cuenta.",
+        "pack": pack.name,
+    }
+
+
+@app.get("/packs")
+async def listar_packs(db: Session = Depends(get_db)):
+    """Retorna el catálogo de paquetes de tokens disponibles."""
+    from core.models import TokenPack
+    packs = db.query(TokenPack).filter(TokenPack.is_active == True).all()
+    return [
+        {"id": p.id, "name": p.name, "price": float(p.price), "tokens": p.tokens}
+        for p in packs
+    ]
