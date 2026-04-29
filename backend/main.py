@@ -161,6 +161,7 @@ class UserCreate(BaseModel):
     lastName: str
     email: str
     phone: str
+    country: str
     password: str
 
 class UserLogin(BaseModel):
@@ -169,17 +170,24 @@ class UserLogin(BaseModel):
 
 @app.post("/register")
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
-    # Verificar si el usuario ya existe
+    # 1. Verificar si el usuario (correo) ya existe
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
+        
+    # 2. Verificar si el teléfono ya existe (NUEVO BLOQUE)
+    if user_data.phone:
+        existing_phone = db.query(User).filter(User.phone == user_data.phone).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="Este número de teléfono ya está asociado a otra cuenta.")
     
-    # Crear nuevo usuario
+    # 3. Crear nuevo usuario (Incluyendo el país)
     new_user = User(
         first_name=user_data.firstName,
         last_name=user_data.lastName,
         email=user_data.email,
         phone=user_data.phone,
+        country=user_data.country, # <-- Campo de país agregado
         password_hash=get_password_hash(user_data.password),
         plan_id=1 # Plan Free por defecto
     )
@@ -187,7 +195,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    # Crear token de acceso
+    # 4. Crear token de acceso
     access_token = create_access_token(data={"sub": new_user.email})
     return {
         "status": "success", 

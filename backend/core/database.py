@@ -21,27 +21,64 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def _add_column_if_not_exists(conn, table_name, column_name, column_definition):
+    """
+    Verifica de manera segura en MySQL si una columna existe antes de intentar crearla.
+    Esto evita errores ocultos y funciona perfecto tanto en BD nuevas como viejas.
+    """
+    check_sql = text("""
+        SELECT COUNT(*) 
+        FROM information_schema.columns 
+        WHERE table_schema = :db_name 
+        AND table_name = :table_name 
+        AND column_name = :column_name
+    """)
+    # Pasamos los parámetros de forma segura para evitar inyecciones SQL
+    result = conn.execute(check_sql, {
+        "db_name": DB_NAME, 
+        "table_name": table_name, 
+        "column_name": column_name
+    }).scalar()
+    
+    if result == 0:
+        try:
+            alter_sql = text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}")
+            conn.execute(alter_sql)
+            conn.commit()
+            logger.info(f"✅ Columna '{column_name}' agregada a la tabla '{table_name}'.")
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"❌ Error al agregar {column_name} a {table_name}: {e}")
+
+
 def _run_safe_migrations(conn):
     """
-    Ejecuta migraciones seguras: agrega columnas nuevas sin tocar las existentes.
-    Cada ALTER TABLE está envuelto en un try/except para no fallar si la columna ya existe.
+    Si levantan el proyecto desde cero, SQLAlchemy ya habrá creado estas columnas
+    y esta función simplemente las ignorará. Si tienen la BD vieja, esto agregará lo que falta.
     """
-    migrations = [
-        # plans: agregar tokens_per_month si no existe
-        "ALTER TABLE plans ADD COLUMN tokens_per_month INT DEFAULT 0",
-        # plans: agregar has_watermark si no existe (venía como has_watermark en la BD original)
-        "ALTER TABLE plans ADD COLUMN has_watermark BOOLEAN DEFAULT FALSE",
-        # plans: agregar has_ai_analysis si no existe
-        "ALTER TABLE plans ADD COLUMN has_ai_analysis BOOLEAN DEFAULT FALSE",
-    ]
-    for sql in migrations:
-        try:
-            conn.execute(text(sql))
-            conn.commit()
-            logger.info(f"✅ Migración aplicada: {sql[:60]}...")
-        except Exception:
-            # La columna ya existe — ignorar silenciosamente
-            conn.rollback()
+    # ── Migraciones para la tabla 'plans' ──
+    _add_column_if_not_exists(conn, "plans", "tokens_per_month", "INT DEFAULT 0")
+    _add_column_if_not_exists(conn, "plans", "has_watermark", "BOOLEAN DEFAULT FALSE")
+    _add_column_if_not_exists(conn, "plans", "has_ai_analysis", "BOOLEAN DEFAULT FALSE")
+
+    # ── Migraciones para la tabla 'users' (Seguridad y Auditoría) ──
+    _add_column_if_not_exists(conn, "users", "country", "VARCHAR(100)")
+    _add_column_if_not_exists(conn, "users", "is_email_verified", "BOOLEAN DEFAULT FALSE")
+    _add_column_if_not_exists(conn, "users", "is_active", "BOOLEAN DEFAULT TRUE")
+    _add_column_if_not_exists(conn, "users", "last_login_at", "DATETIME")
+    _add_column_if_not_exists(conn, "users", "last_login_ip", "VARCHAR(45)")
+    _add_column_if_not_exists(conn, "users", "failed_login_attempts", "INT DEFAULT 0")
+    _add_column_if_not_exists(conn, "users", "account_locked_until", "DATETIME")
+
+    # ── BLINDAJE DE DUPLICADOS EN CALIENTE ──
+    try:
+        # Intenta crear un índice único para el teléfono en MySQL
+        conn.execute(text("CREATE UNIQUE INDEX idx_unique_users_phone ON users(phone)"))
+        conn.commit()
+        logger.info("✅ Restricción UNIQUE agregada a la columna 'phone' en la tabla 'users'.")
+    except Exception:
+        # Si el índice ya existe o el teléfono estaba vacío y choca, retrocede silenciosamente
+        conn.rollback()
 
 
 def init_db():

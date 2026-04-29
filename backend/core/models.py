@@ -26,8 +26,20 @@ class User(Base):
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, index=True, nullable=False)
-    phone = Column(String(20))
+    phone = Column(String(20), unique=True, nullable=True)
     password_hash = Column(String(255), nullable=False)
+    
+    # ── Campos de Seguridad y Facturación ──
+    country = Column(String(100), nullable=True)           # Para validación con PayPal sin pedir dirección completa
+    is_email_verified = Column(Boolean, default=False)     # Crucial para evitar cuentas bot
+    is_active = Column(Boolean, default=True)              # Para suspender/banear usuarios problemáticos
+    
+    # ── Auditoría y Prevención de Fraude ──
+    last_login_at = Column(DateTime, nullable=True)
+    last_login_ip = Column(String(45), nullable=True)      # Soporta IPv4 e IPv6
+    failed_login_attempts = Column(Integer, default=0)     # Contador para bloquear tras N intentos fallidos
+    account_locked_until = Column(DateTime, nullable=True) # Tiempo de castigo temporal
+    
     plan_id = Column(Integer, ForeignKey("plans.id"), default=1)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))

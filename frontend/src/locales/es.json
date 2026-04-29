@@ -68,6 +68,7 @@
     "first_name": "Nombre",
     "last_name": "Apellido",
     "phone": "Número de teléfono",
+    "country": "País",
     "login_btn": "Iniciar Sesión",
     "register_btn": "Registrarse",
     "no_account": "¿No tienes cuenta?",
