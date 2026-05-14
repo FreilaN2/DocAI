@@ -86,9 +86,18 @@
     "back_upgrade": "Volver a Upgrade"
   },
   "profile": {
-    "title": "Mi perfil",
-    "email": "Correo",
-    "plan": "Plan",
-    "member_since": "Miembro desde"
+    "title": "Mi Perfil",
+    "member_since": "Miembro desde",
+    "last_activity": "Última actividad",
+    "no_user": "No has iniciado sesión",
+    "no_user_info": "No hay información de usuario disponible.",
+    "copy_email": "Copiar email",
+    "edit_profile": "Editar perfil",
+    "information": "Información",
+    "name": "Nombre",
+    "email": "Email",
+    "country": "País",
+    "phone": "Teléfono",
+    "plan": "Plan"
   }
 }

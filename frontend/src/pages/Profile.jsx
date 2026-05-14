@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Navbar from '../components/Navbar';
 import PlanBadge from '../components/PlanBadge';
 
 export default function Profile() {
+  const { t } = useTranslation();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -18,8 +20,8 @@ export default function Profile() {
         <Navbar />
         <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto">
           <div className="bg-white/80 dark:bg-[#1a1512]/80 backdrop-blur-lg rounded-2xl border border-slate-200 dark:border-outline-variant/30 p-8 text-center">
-            <h2 className="text-xl font-black">Perfil</h2>
-            <p className="text-sm text-on-surface-variant mt-2">No hay información de usuario disponible.</p>
+            <h2 className="text-xl font-black">{t('profile.title')}</h2>
+            <p className="text-sm text-on-surface-variant mt-2">{t('profile.no_user_info')}</p>
           </div>
         </main>
       </div>
@@ -46,7 +48,7 @@ export default function Profile() {
               <p className="text-sm text-on-surface-variant mt-1">{user.email}</p>
               <div className="mt-4 flex items-center gap-3">
                 <PlanBadge plan={user.plan === 'pro' ? 'pro' : 'free'} />
-                <span className="text-xs text-slate-500 dark:text-on-surface-variant">Miembro desde {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</span>
+                <span className="text-xs text-slate-500 dark:text-on-surface-variant">{t('profile.member_since')} {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</span>
               </div>
             </div>
 
@@ -54,11 +56,11 @@ export default function Profile() {
               <button
                 onClick={() => navigator.clipboard?.writeText(user.email)}
                 className="px-4 py-2 rounded-xl bg-surface-variant dark:bg-surface-container-high text-sm font-bold border border-outline hover:opacity-90 transition-colors"
-              >Copiar email</button>
+              >{t('profile.copy_email')}</button>
               <button
                 onClick={() => alert('Editar perfil (pendiente)')}
                 className="px-4 py-2 rounded-xl bg-primary-container text-white font-bold hover:opacity-95 transition-all"
-              >Editar perfil</button>
+              >{t('profile.edit_profile')}</button>
             </div>
           </div>
         </section>
@@ -66,36 +68,36 @@ export default function Profile() {
         {/* Information card below */}
         <section className="w-full">
           <div className="-mt-6 bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg rounded-2xl border border-slate-200 dark:border-outline-variant/30 p-6 shadow-sm">
-            <h2 className="text-lg font-black mb-4">Información</h2>
+            <h2 className="text-lg font-black mb-4">{t('profile.information')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 bg-surface-container rounded-xl">
-                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Nombre</p>
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.name')}</p>
                 <p className="font-bold text-on-surface">{user.firstName} {user.lastName}</p>
               </div>
 
               <div className="p-4 bg-surface-container rounded-xl">
-                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Email</p>
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.email')}</p>
                 <p className="font-bold text-on-surface truncate">{user.email}</p>
               </div>
 
               <div className="p-4 bg-surface-container rounded-xl">
-                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">País</p>
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.country')}</p>
                 <p className="font-bold text-on-surface">{user.country || '—'}</p>
               </div>
 
               <div className="p-4 bg-surface-container rounded-xl">
-                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Teléfono</p>
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.phone')}</p>
                 <p className="font-bold text-on-surface">{user.phone || '—'}</p>
               </div>
 
               <div className="p-4 bg-surface-container rounded-xl">
-                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Plan</p>
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.plan')}</p>
                 <p className="font-bold text-on-surface">{user.plan || 'free'}</p>
               </div>
 
               <div className="p-4 bg-surface-container rounded-xl">
-                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Última actividad</p>
-                <p className="font-bold text-on-surface">{user.last_login ? new Date(user.last_login).toLocaleString() : '—'}</p>
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.last_activity')}</p>
+                <p className="font-bold text-on-surface">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '—'}</p>
               </div>
             </div>
           </div>

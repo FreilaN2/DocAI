@@ -84,10 +84,19 @@
     "error_title": "Something went wrong",
     "back_upgrade": "Back to Upgrade"
   },
-    "profile": {
-    "title": "Profile",
+  "profile": {
+    "title": "My Profile",
+    "member_since": "Member since",
+    "last_activity": "Last activity",
+    "no_user": "You are not logged in",
+    "no_user_info": "No user information available.",
+    "copy_email": "Copy email",
+    "edit_profile": "Edit profile",
+    "information": "Information",
+    "name": "Name",
     "email": "Email",
-    "plan": "Plan",
-    "member_since": "Member since"
+    "country": "Country",
+    "phone": "Phone",
+    "plan": "Plan"
   }
 }

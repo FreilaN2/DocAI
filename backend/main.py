@@ -243,7 +243,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)): # 👈 QUITA
             "phone": new_user.phone,
             "country": new_user.country,
             "plan": new_user.plan.name if new_user.plan else "free",
-            "createdAt": new_user.created_at.isoformat() if getattr(new_user, 'created_at', None) else None
+            "createdAt": new_user.created_at.isoformat() if getattr(new_user, 'created_at', None) else None,
+            "lastLoginAt": None
         }
     }
 
@@ -252,6 +253,10 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)): # 👈 QUITA E
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
+    
+    # Actualizar last_login_at
+    user.last_login_at = datetime.utcnow()
+    db.commit()
     
     access_token = create_access_token(data={"sub": user.email})
     return {
@@ -266,8 +271,8 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)): # 👈 QUITA E
             "phone": user.phone,
             "country": user.country,
             "plan": user.plan.name if user.plan else "free",
-            "createdAt": user.created_at.isoformat() if getattr(user, 'created_at', None) else None
-            
+            "createdAt": user.created_at.isoformat() if getattr(user, 'created_at', None) else None,
+            "lastLoginAt": user.last_login_at.isoformat() if getattr(user, 'last_login_at', None) else None
         }
     }
 
