@@ -3,6 +3,32 @@ import { useTranslation } from 'react-i18next';
 import Navbar from '../components/Navbar';
 import PlanBadge from '../components/PlanBadge';
 
+// Lista de países
+const countryList = [
+  { code: 'AR', name: 'Argentina' },
+  { code: 'BO', name: 'Bolivia' },
+  { code: 'CL', name: 'Chile' },
+  { code: 'CO', name: 'Colombia' },
+  { code: 'CR', name: 'Costa Rica' },
+  { code: 'CU', name: 'Cuba' },
+  { code: 'EC', name: 'Ecuador' },
+  { code: 'SV', name: 'El Salvador' },
+  { code: 'ES', name: 'España' },
+  { code: 'US', name: 'Estados Unidos' },
+  { code: 'GT', name: 'Guatemala' },
+  { code: 'HN', name: 'Honduras' },
+  { code: 'MX', name: 'México' },
+  { code: 'NI', name: 'Nicaragua' },
+  { code: 'PA', name: 'Panamá' },
+  { code: 'PY', name: 'Paraguay' },
+  { code: 'PE', name: 'Perú' },
+  { code: 'PR', name: 'Puerto Rico' },
+  { code: 'DO', name: 'República Dominicana' },
+  { code: 'UY', name: 'Uruguay' },
+  { code: 'VE', name: 'Venezuela' },
+  { code: 'OT', name: 'Otro' }
+];
+
 export default function Profile() {
   const { t } = useTranslation();
   const [user, setUser] = useState(null);
@@ -82,7 +108,7 @@ export default function Profile() {
 
               <div className="p-4 bg-surface-container rounded-xl">
                 <p className="text-xs text-on-surface-variant uppercase font-black mb-2">{t('profile.country')}</p>
-                <p className="font-bold text-on-surface">{user.country || '—'}</p>
+                <p className="font-bold text-on-surface">{user.country ? countryList.find(c => c.code === user.country)?.name : '—'}</p>
               </div>
 
               <div className="p-4 bg-surface-container rounded-xl">
