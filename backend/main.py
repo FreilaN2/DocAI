@@ -11,13 +11,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from pydantic import BaseModel
 from typing import List
 import io
-from core.database import init_db
 
-# Importar motores de procesamiento
+# Importar motores de procesamiento y base de datos
+from core.database import init_db, get_db
 from core.apa_rules import procesar_con_reglas
 from core.apa_ai import procesar_con_ia
 from core.auth import get_password_hash, verify_password, create_access_token
-from core.database import get_db
 from core.models import User, Plan, TokenBalance
 from core.token_service import (
     get_available_tokens,
@@ -28,6 +27,7 @@ from core.token_service import (
 )
 from core.paypal import create_order, capture_order
 from sqlalchemy.orm import Session
+from sqlalchemy import text  # <-- Importación necesaria para el diagnóstico
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -45,9 +45,42 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 app = FastAPI()
+
+# --- RUTAS DE DIAGNÓSTICO ---
+@app.get("/prueba-rapida")
+def prueba_rapida():
+    return {"status": "¡FastAPI está vivo y responde en milisegundos!"}
+
+@app.get("/diagnostico-db")
+def diagnostico_db(db: Session = Depends(get_db)):
+    try:
+        # 1. Probar que las credenciales del .env funcionan
+        db.execute(text("SELECT 1"))
+        
+        # 2. Forzar la creación de las tablas de forma manual
+        init_db()
+        
+        return {
+            "status": "success", 
+            "mensaje": "✅ Conexión a MySQL exitosa y tablas creadas/verificadas correctamente."
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "mensaje": "🚨 Falla al conectar con MySQL o al crear tablas", 
+            "error_real": str(e)
+        }
+
+# --- MIDDLEWARE Y SEGURIDAD ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",           # Desarrollo local
+        "http://127.0.0.1:5173",           # Desarrollo local (alternativo)
+        "https://docai.teleredtv.com",     # Producción
+        "http://docai.teleredtv.com",      # Producción (sin SSL por si acaso)
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -75,12 +108,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 # Inicializar base de datos al arrancar
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🛠️ Inicializando base de datos en MySQL (XAMPP)...")
+    logger.info("🛠️ Intentando inicializar base de datos...")
     try:
-        init_db()
-        logger.info("✅ Base de datos y tablas listas.")
+        # init_db()  <-- Si ya tienes las tablas creadas, COMENTA esta línea temporalmente
+        # para probar si es lo que está trabando el inicio.
+        logger.info("✅ Chequeo de inicio completado.")
     except Exception as e:
-        logger.error(f"❌ Error al inicializar la base de datos: {e}")
+        logger.error(f"❌ Error en startup: {e}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -169,27 +203,27 @@ class UserLogin(BaseModel):
     password: str
 
 @app.post("/register")
-async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+def register(user_data: UserCreate, db: Session = Depends(get_db)): # 👈 QUITA EL ASYNC
     # 1. Verificar si el usuario (correo) ya existe
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
         
-    # 2. Verificar si el teléfono ya existe (NUEVO BLOQUE)
+    # 2. Verificar si el teléfono ya existe
     if user_data.phone:
         existing_phone = db.query(User).filter(User.phone == user_data.phone).first()
         if existing_phone:
             raise HTTPException(status_code=400, detail="Este número de teléfono ya está asociado a otra cuenta.")
     
-    # 3. Crear nuevo usuario (Incluyendo el país)
+    # 3. Crear nuevo usuario
     new_user = User(
         first_name=user_data.firstName,
         last_name=user_data.lastName,
         email=user_data.email,
         phone=user_data.phone,
-        country=user_data.country, # <-- Campo de país agregado
-        password_hash=get_password_hash(user_data.password),
-        plan_id=1 # Plan Free por defecto
+        country=user_data.country,
+        password_hash=get_password_hash(user_data.password), # 👈 Esto ya no bloqueará el servidor
+        plan_id=1 
     )
     db.add(new_user)
     db.commit()
@@ -209,7 +243,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     }
 
 @app.post("/login")
-async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+def login(credentials: UserLogin, db: Session = Depends(get_db)): # 👈 QUITA EL ASYNC
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
@@ -584,3 +618,26 @@ async def listar_packs(db: Session = Depends(get_db)):
         {"id": p.id, "name": p.name, "price": float(p.price), "tokens": p.tokens}
         for p in packs
     ]
+
+# ═══════════════════════════════════════════════════════════
+# INTEGRACIÓN DE FRONTEND (REACT) DENTRO DE FASTAPI
+# ═══════════════════════════════════════════════════════════
+from fastapi.responses import FileResponse
+import os
+
+@app.get("/{catchall:path}")
+def serve_react_app(catchall: str):
+    # Ruta absoluta donde están los archivos compilados de tu React
+    frontend_dir = "/home2/teleredt/public_html/docai.teleredtv.com"
+    file_path = os.path.join(frontend_dir, catchall)
+    
+    # 1. Si el navegador pide un archivo físico (como /assets/index.js, un logo, etc)
+    if catchall and os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+    
+    # 2. Si el usuario entra a una ruta como "/" o "/login", le damos la app de React
+    index_path = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+        
+    return {"detail": "Error crítico: El archivo index.html no está en la carpeta public_html."}

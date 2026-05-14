@@ -8,6 +8,7 @@
 fastapi==0.136.1          # Framework principal de la API
 uvicorn==0.46.0           # Servidor ASGI para correr FastAPI
 python-multipart==0.0.22  # Soporte para subida de archivos (multipart/form-data)
+a2wsgi==1.10.10           # Traductor de FastAPI a cPanel
 
 # --- Base de Datos ---
 SQLAlchemy==2.0.49        # ORM para gestión de la base de datos

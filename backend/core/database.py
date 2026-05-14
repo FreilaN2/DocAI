@@ -10,13 +10,26 @@ logger = logging.getLogger(__name__)
 
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASS = os.getenv("DB_PASS", "")
-DB_HOST = os.getenv("DB_HOST", "localhost")
+
+# BLINDAJE 1: Forzamos la conexión por IP interna en cPanel
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+if DB_HOST == "localhost":
+    DB_HOST = "127.0.0.1"
+
 DB_NAME = os.getenv("DB_NAME", "docai_db")
 DB_PORT = os.getenv("DB_PORT", "3306")
 
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-engine = create_engine(DATABASE_URL)
+# BLINDAJE 2: Parámetros anti-congelamiento para cPanel
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,      # Verifica que la conexión esté viva antes de usarla
+    pool_recycle=280,        # Reinicia la conexión antes de que cPanel la mate (300s)
+    pool_size=5,             # Límite de conexiones simultáneas
+    max_overflow=10          # Margen de seguridad
+)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -24,7 +37,6 @@ Base = declarative_base()
 def _add_column_if_not_exists(conn, table_name, column_name, column_definition):
     """
     Verifica de manera segura en MySQL si una columna existe antes de intentar crearla.
-    Esto evita errores ocultos y funciona perfecto tanto en BD nuevas como viejas.
     """
     check_sql = text("""
         SELECT COUNT(*) 
@@ -33,7 +45,6 @@ def _add_column_if_not_exists(conn, table_name, column_name, column_definition):
         AND table_name = :table_name 
         AND column_name = :column_name
     """)
-    # Pasamos los parámetros de forma segura para evitar inyecciones SQL
     result = conn.execute(check_sql, {
         "db_name": DB_NAME, 
         "table_name": table_name, 
@@ -53,15 +64,12 @@ def _add_column_if_not_exists(conn, table_name, column_name, column_definition):
 
 def _run_safe_migrations(conn):
     """
-    Si levantan el proyecto desde cero, SQLAlchemy ya habrá creado estas columnas
-    y esta función simplemente las ignorará. Si tienen la BD vieja, esto agregará lo que falta.
+    Migraciones seguras para columnas faltantes.
     """
-    # ── Migraciones para la tabla 'plans' ──
     _add_column_if_not_exists(conn, "plans", "tokens_per_month", "INT DEFAULT 0")
     _add_column_if_not_exists(conn, "plans", "has_watermark", "BOOLEAN DEFAULT FALSE")
     _add_column_if_not_exists(conn, "plans", "has_ai_analysis", "BOOLEAN DEFAULT FALSE")
 
-    # ── Migraciones para la tabla 'users' (Seguridad y Auditoría) ──
     _add_column_if_not_exists(conn, "users", "country", "VARCHAR(100)")
     _add_column_if_not_exists(conn, "users", "is_email_verified", "BOOLEAN DEFAULT FALSE")
     _add_column_if_not_exists(conn, "users", "is_active", "BOOLEAN DEFAULT TRUE")
@@ -70,63 +78,36 @@ def _run_safe_migrations(conn):
     _add_column_if_not_exists(conn, "users", "failed_login_attempts", "INT DEFAULT 0")
     _add_column_if_not_exists(conn, "users", "account_locked_until", "DATETIME")
 
-    # ── BLINDAJE DE DUPLICADOS EN CALIENTE ──
     try:
-        # Intenta crear un índice único para el teléfono en MySQL
         conn.execute(text("CREATE UNIQUE INDEX idx_unique_users_phone ON users(phone)"))
         conn.commit()
         logger.info("✅ Restricción UNIQUE agregada a la columna 'phone' en la tabla 'users'.")
     except Exception:
-        # Si el índice ya existe o el teléfono estaba vacío y choca, retrocede silenciosamente
         conn.rollback()
 
 
 def init_db():
-    # 1. Crear la base de datos si no existe
-    temp_engine = create_engine(f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}")
-    with temp_engine.connect() as conn:
-        conn.execute(text(
-            f"CREATE DATABASE IF NOT EXISTS {DB_NAME} "
-            "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-        ))
-        conn.commit()
-    temp_engine.dispose()
-
-    # 2. Crear todas las tablas según los modelos (solo crea las que no existen)
+    # BLINDAJE 3: Eliminado el CREATE DATABASE porque cPanel no lo permite.
+    # Conectamos directo a las tablas.
+    
     from . import models
     Base.metadata.create_all(bind=engine)
 
-    # 3. Migraciones seguras para columnas nuevas en tablas existentes
     with engine.connect() as conn:
         _run_safe_migrations(conn)
 
-    # 4. Poblar datos iniciales
     db = SessionLocal()
     try:
         from .models import Plan, TokenPack
 
-        # ── Planes ──────────────────────────────────────────
         if db.query(Plan).count() == 0:
             db.add_all([
-                Plan(
-                    name="free",
-                    price=0.0,
-                    tokens_per_month=0,
-                    has_ai_analysis=False,
-                    has_watermark=False,
-                ),
-                Plan(
-                    name="pro",
-                    price=12.0,
-                    tokens_per_month=1000,
-                    has_ai_analysis=True,
-                    has_watermark=False,
-                ),
+                Plan(name="free", price=0.0, tokens_per_month=0, has_ai_analysis=False, has_watermark=False),
+                Plan(name="pro", price=12.0, tokens_per_month=1000, has_ai_analysis=True, has_watermark=False),
             ])
             db.commit()
             logger.info("✅ Planes iniciales insertados.")
 
-        # ── Paquetes de tokens extra ─────────────────────────
         if db.query(TokenPack).count() == 0:
             db.add_all([
                 TokenPack(name="Starter Pack",  price=3.00,  tokens=200),
