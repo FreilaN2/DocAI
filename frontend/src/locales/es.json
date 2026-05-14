@@ -53,7 +53,6 @@
     "login": "Ingresar",
     "get_started": "Empezar",
     "hello": "Hola, ",
-    "member_since": "Miembro desde ",
     "logout_title": "Cerrar Sesión",
     "logout_confirm_title": "¿Cerrar sesión?",
     "logout_confirm_desc": "Tendrás que volver a ingresar tus credenciales para acceder a la herramienta.",
