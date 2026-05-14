@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { GoogleLogin } from '@react-oauth/google';
 import Navbar from '../components/Navbar';
 
 // Lista de países
@@ -42,13 +43,13 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  
+
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    country: '', 
+    country: '',
     password: '',
     confirmPassword: ''
   });
@@ -104,31 +105,31 @@ export default function Auth() {
     }
 
     const endpoint = isLogin ? 'login' : 'register';
-    const payload = isLogin 
+    const payload = isLogin
       ? { email: formData.email, password: formData.password }
-      : { 
-          firstName: formData.firstName.trim(), 
-          lastName: formData.lastName.trim(), 
-          email: formData.email, 
-          phone: formData.phone,
-          country: formData.country,
-          password: formData.password 
-        };
+      : {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email,
+        phone: formData.phone,
+        country: formData.country,
+        password: formData.password
+      };
 
     try {
       const response = await api.post(`/${endpoint}`, payload);
-      
+
       if (response.data.status === 'success') {
         localStorage.setItem('token', response.data.access_token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        
+
         if (!isLogin) {
           toast.success("¡Cuenta creada con éxito! Bienvenido a DocAI.", {
             duration: 4000,
             style: { borderRadius: '12px', background: '#333', color: '#fff' },
           });
         }
-        
+
         const userPlan = response.data.user.plan === 'pro' ? 'pro' : 'free';
         navigate(`/editor/${userPlan}`);
       }
@@ -139,21 +140,44 @@ export default function Auth() {
     }
   };
 
-  const selectedCountryName = formData.country 
-    ? countryList.find(c => c.code === formData.country)?.name 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    try {
+      const response = await api.post('/auth/google', {
+        token: credentialResponse.credential
+      });
+
+      if (response.data.status === 'success') {
+        localStorage.setItem('token', response.data.access_token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        toast.success("¡Bienvenido!", {
+          style: { background: '#1a1512', color: '#fff', borderRadius: '15px' },
+          icon: '🚀'
+        });
+        navigate('/editor/free');
+      }
+    } catch (err) {
+      toast.error("Error al iniciar sesión con Google");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedCountryName = formData.country
+    ? countryList.find(c => c.code === formData.country)?.name
     : "Seleccionar...";
 
   return (
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden flex flex-col">
       <Navbar />
-      
+
       <div className="fixed inset-0 z-[-1] pointer-events-none">
-        <motion.div 
+        <motion.div
           animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.5, 0.3] }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
           className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-surface-container-high rounded-full blur-[150px]"
         />
-        <motion.div 
+        <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
           transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
           className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] bg-surface-variant rounded-full blur-[130px]"
@@ -161,7 +185,7 @@ export default function Auth() {
       </div>
 
       <main className="flex-grow pt-32 pb-24 px-6 flex items-center justify-center">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
@@ -174,11 +198,11 @@ export default function Auth() {
             </h1>
             <p className="text-on-surface-variant text-sm font-medium">
               {isLogin ? t('auth.no_account') : t('auth.have_account')}{' '}
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setIsLogin(!isLogin);
-                  setError(""); 
+                  setError("");
                 }}
                 className="text-primary-container font-bold hover:text-primary transition-colors hover:underline focus:outline-none"
               >
@@ -188,7 +212,7 @@ export default function Auth() {
           </div>
 
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-error/10 text-error p-4 rounded-xl text-xs font-bold border border-error/20 mb-6 flex items-center gap-3 shadow-inner"
@@ -199,18 +223,18 @@ export default function Auth() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            
+
             {/* CAMPOS DE REGISTRO OCULTABLES */}
             <AnimatePresence mode="wait">
               {!isLogin && (
-                <motion.div 
+                <motion.div
                   key="register-fields"
                   initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                  animate={{ 
-                    opacity: 1, 
-                    height: 'auto', 
+                  animate={{
+                    opacity: 1,
+                    height: 'auto',
                     // Solución mágica para que el menú del país no se corte
-                    transitionEnd: { overflow: 'visible' } 
+                    transitionEnd: { overflow: 'visible' }
                   }}
                   exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
                   className="space-y-4"
@@ -218,7 +242,7 @@ export default function Auth() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.first_name')}</label>
-                      <input 
+                      <input
                         type="text" name="firstName" required={!isLogin}
                         placeholder="John" className={inputBaseClasses}
                         onChange={handleChange} value={formData.firstName}
@@ -226,18 +250,18 @@ export default function Auth() {
                     </div>
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.last_name')}</label>
-                      <input 
+                      <input
                         type="text" name="lastName" required={!isLogin}
                         placeholder="Doe" className={inputBaseClasses}
                         onChange={handleChange} value={formData.lastName}
                       />
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.phone')}</label>
-                      <input 
+                      <input
                         type="tel" name="phone" required={!isLogin}
                         placeholder="+1 234 567 890" className={inputBaseClasses}
                         onChange={handleChange} value={formData.phone}
@@ -265,14 +289,14 @@ export default function Auth() {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: -10, scale: 0.95 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute z-50 w-full mt-2 bg-white/90 dark:bg-surface-container-high/95 backdrop-blur-xl border border-slate-200 dark:border-outline-variant/20 rounded-2xl shadow-xl overflow-hidden origin-top"
+                              className="absolute z-50 w-full mt-2 bg-surface backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-xl overflow-hidden origin-top"
                             >
                               <ul className="max-h-48 overflow-y-auto custom-scrollbar py-2">
                                 {countryList.map((country) => (
-                                  <li 
+                                  <li
                                     key={country.code}
                                     onClick={() => handleCountrySelect(country.code)}
-                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors duration-150 flex items-center justify-between ${formData.country === country.code ? 'bg-primary-container text-white font-bold' : 'text-on-surface hover:bg-slate-100 dark:hover:bg-surface-variant'}`}
+                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors duration-150 flex items-center justify-between ${formData.country === country.code ? 'bg-primary-container text-white font-bold' : 'text-on-surface hover:bg-primary-container/10'}`}
                                   >
                                     <span>{country.name}</span>
                                     {formData.country === country.code && (
@@ -294,7 +318,7 @@ export default function Auth() {
             {/* CAMPOS SIEMPRE VISIBLES */}
             <div className="space-y-1">
               <label className={labelBaseClasses}>{t('auth.email')}</label>
-              <input 
+              <input
                 type="email" name="email" required
                 placeholder="email@example.com" className={inputBaseClasses}
                 onChange={handleChange} value={formData.email}
@@ -303,7 +327,7 @@ export default function Auth() {
 
             <div className="space-y-1">
               <label className={labelBaseClasses}>{t('auth.password')}</label>
-              <input 
+              <input
                 type="password" name="password" required
                 placeholder="••••••••" className={inputBaseClasses}
                 onChange={handleChange} value={formData.password}
@@ -312,14 +336,14 @@ export default function Auth() {
 
             <AnimatePresence mode="wait">
               {!isLogin && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-1 overflow-hidden"
                 >
                   <label className={labelBaseClasses}>{t('auth.confirm_password')}</label>
-                  <input 
+                  <input
                     type="password" name="confirmPassword" required={!isLogin}
                     placeholder="••••••••" className={inputBaseClasses}
                     onChange={handleChange} value={formData.confirmPassword}
@@ -345,6 +369,30 @@ export default function Auth() {
               )}
             </motion.button>
           </form>
+
+          {/* DIVISOR Y GOOGLE */}
+          <div className="mt-8">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-outline/20"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase tracking-widest">
+                <span className="bg-surface px-4 text-on-surface-variant font-bold">O continuar con</span>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => toast.error("Error en Google Login")}
+                useOneTap
+                theme={document.documentElement.classList.contains('dark') ? 'dark' : 'outline'}
+                shape="pill"
+                size="large"
+                width="100%"
+              />
+            </div>
+          </div>
         </motion.div>
       </main>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -43,9 +43,7 @@ export default function Editor() {
       try {
         const userData = JSON.parse(storedUser);
         if (userData.plan === 'pro') {
-          axios.get('http://127.0.0.1:8000/tokens/balance', {
-            headers: { Authorization: `Bearer ${token}` }
-          }).then(r => {
+          api.get('/tokens/balance').then(r => {
             setTokenBalance(r.data);
             // Si intenta usar la herramienta Free pero aún tiene tokens, lo enviamos a Pro
             if (!isPro && r.data.total > 0) {
@@ -92,11 +90,11 @@ export default function Editor() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/procesar-apa/', formData, { headers });
+      const response = await api.post('/procesar-apa/', formData);
       setResult(response.data);
       // Actualizar saldo tras análisis
       if (isPro && token) {
-        const balResp = await axios.get('http://127.0.0.1:8000/tokens/balance', { headers: { Authorization: `Bearer ${token}` } });
+        const balResp = await api.get('/tokens/balance');
         setTokenBalance(balResp.data);
       }
     } catch (error) {
@@ -127,8 +125,8 @@ export default function Editor() {
         parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
         incluir_indice: includeTOC
       };
-      const response = await axios.post('http://127.0.0.1:8000/generar-final/', payload);
-      window.location.href = `http://127.0.0.1:8000/descargar/${response.data.file_id}`;
+      const response = await api.post('/generar-final/', payload);
+      window.location.href = `${api.defaults.baseURL}/descargar/${response.data.file_id}`;
     } catch (error) {
       alert("Error al generar el documento final.");
     } finally {
@@ -278,11 +276,11 @@ export default function Editor() {
             </motion.section>
           ) : (
             <motion.section key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full">
-              <div className="bg-white/80 backdrop-blur-xl rounded-card border border-slate-200 p-8 shadow-xl">
+              <div className="bg-surface/80 dark:bg-surface/90 backdrop-blur-xl rounded-card border border-outline-variant/10 p-8 shadow-xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                   <div>
-                    <h2 className="text-2xl font-black tracking-tight">{t('editor.correction_title')}</h2>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t('editor.correction_subtitle')}</p>
+                    <h2 className="text-2xl font-black tracking-tight text-on-surface">{t('editor.correction_title')}</h2>
+                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">{t('editor.correction_subtitle')}</p>
                   </div>
                 </div>
 

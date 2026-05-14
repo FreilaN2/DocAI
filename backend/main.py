@@ -12,6 +12,8 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from pydantic import BaseModel
 from typing import List
 import io
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 # Importar motores de procesamiento y base de datos
 from core.database import init_db, get_db
@@ -276,6 +278,68 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)): # 👈 QUITA E
             "lastLoginAt": user.last_login_at.isoformat() if getattr(user, 'last_login_at', None) else None
         }
     }
+
+class GoogleAuthRequest(BaseModel):
+    token: str
+
+@app.post("/auth/google")
+def auth_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+    try:
+        # 1. Verificar el token de Google
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        id_info = id_token.verify_oauth2_token(
+            data.token, google_requests.Request(), client_id
+        )
+
+        # 2. Obtener info del usuario
+        email = id_info.get("email")
+        first_name = id_info.get("given_name", "Google")
+        last_name = id_info.get("family_name", "User")
+
+        # 3. Buscar si el usuario ya existe
+        user = db.query(User).filter(User.email == email).first()
+
+        if not user:
+            # Registrar nuevo usuario si no existe
+            user = User(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone="", # Google no proporciona el teléfono por defecto
+                country="US", # Valor por defecto
+                password_hash=get_password_hash(os.urandom(24).hex()), # Contraseña aleatoria (no se usará)
+                plan_id=1 
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        # Actualizar último login
+        user.last_login_at = datetime.utcnow()
+        db.commit()
+
+        # 4. Crear token de nuestra app
+        access_token = create_access_token(data={"sub": user.email})
+        
+        return {
+            "status": "success", 
+            "access_token": access_token, 
+            "token_type": "bearer", 
+            "user": {
+                "id": user.id,
+                "email": user.email, 
+                "firstName": user.first_name,
+                "lastName": user.last_name,
+                "phone": user.phone,
+                "country": user.country,
+                "plan": user.plan.name if user.plan else "free"
+            }
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Token de Google inválido o expirado.")
+    except Exception as e:
+        logger.error(f"Error en Google Auth: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error interno en la autenticación de Google.")
 
 def añadir_marca_de_agua(doc):
     """Añade una marca de agua en el pie de página para el plan Free"""
