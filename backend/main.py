@@ -242,7 +242,8 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)): # 👈 QUITA
             "lastName": new_user.last_name,
             "phone": new_user.phone,
             "country": new_user.country,
-            "plan": new_user.plan.name if new_user.plan else "free"
+            "plan": new_user.plan.name if new_user.plan else "free",
+            "createdAt": new_user.created_at.isoformat() if getattr(new_user, 'created_at', None) else None
         }
     }
 
@@ -264,7 +265,9 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)): # 👈 QUITA E
             "lastName": user.last_name,
             "phone": user.phone,
             "country": user.country,
-            "plan": user.plan.name if user.plan else "free"
+            "plan": user.plan.name if user.plan else "free",
+            "createdAt": user.created_at.isoformat() if getattr(user, 'created_at', None) else None
+            
         }
     }
 

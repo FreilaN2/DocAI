@@ -83,5 +83,11 @@
     "go_pro": "Go to Pro Editor →",
     "error_title": "Something went wrong",
     "back_upgrade": "Back to Upgrade"
+  },
+    "profile": {
+    "title": "Profile",
+    "email": "Email",
+    "plan": "Plan",
+    "member_since": "Member since"
   }
 }
