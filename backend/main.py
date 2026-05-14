@@ -627,17 +627,30 @@ import os
 
 @app.get("/{catchall:path}")
 def serve_react_app(catchall: str):
-    # Ruta absoluta donde están los archivos compilados de tu React
-    frontend_dir = "/home2/teleredt/public_html/docai.teleredtv.com"
-    file_path = os.path.join(frontend_dir, catchall)
-    
-    # 1. Si el navegador pide un archivo físico (como /assets/index.js, un logo, etc)
+    # Ruta en servidor cPanel donde podrían estar los archivos compilados (producción)
+    cpanel_frontend = "/home2/teleredt/public_html/docai.teleredtv.com"
+    # Ruta local del frontend dentro del repo (desarrollo local)
+    project_root = os.path.abspath(os.path.join(BASE_DIR, ".."))
+    local_frontend = os.path.join(project_root, "frontend")
+    # Elegir directorio efectivo: preferir cPanel si contiene index.html, sino usar local
+    chosen_frontend = cpanel_frontend if os.path.exists(os.path.join(cpanel_frontend, "index.html")) else local_frontend
+
+    file_path = os.path.join(chosen_frontend, catchall)
+
+    # Si piden un archivo físico existente (assets, JS, CSS, imágenes)
     if catchall and os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
-    
-    # 2. Si el usuario entra a una ruta como "/" o "/login", le damos la app de React
-    index_path = os.path.join(frontend_dir, "index.html")
+
+    # Si piden ruta raíz o SPA routes, servir index.html desde el chosen_frontend
+    index_path = os.path.join(chosen_frontend, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-        
-    return {"detail": "Error crítico: El archivo index.html no está en la carpeta public_html."}
+
+    # Fallback: mensaje de error con rutas probadas para diagnóstico
+    return {
+        "detail": "Error: index.html no encontrado.",
+        "tried": {
+            "cpanel": cpanel_frontend,
+            "local": local_frontend
+        }
+    }
