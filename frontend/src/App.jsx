@@ -5,6 +5,7 @@ import './i18n';
 import Landing from './pages/Landing';
 import Editor from './pages/Editor';
 import Auth from './pages/Auth';
+import Profile from './pages/Profile';
 import Upgrade from './pages/Upgrade';
 import PaymentSuccess from './pages/PaymentSuccess';
 
@@ -21,6 +22,7 @@ function App() {
       />
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/editor/:plan" element={<Editor />} />
         <Route path="/login" element={<Auth />} />
         <Route path="/register" element={<Auth />} />

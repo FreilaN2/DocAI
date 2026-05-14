@@ -114,7 +114,7 @@ export default function Navbar() {
 
                 {/* Nombre + Badge PRO */}
                 <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-700 dark:text-on-surface">{t('navbar.hello')}{user.firstName}</span>
+                  <Link to="/profile" className="text-sm font-bold text-slate-700 dark:text-on-surface no-underline">{t('navbar.hello')}{user.firstName}</Link>
                   {isPro ? (
                     <span className="text-[9px] font-black bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">
                       PRO
