@@ -1,91 +1,105 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
-
-const countryNames = {
-  AR: 'Argentina', BO: 'Bolivia', CL: 'Chile', CO: 'Colombia', CR: 'Costa Rica', CU: 'Cuba',
-  EC: 'Ecuador', SV: 'El Salvador', ES: 'España', US: 'Estados Unidos', GT: 'Guatemala',
-  HN: 'Honduras', MX: 'México', NI: 'Nicaragua', PA: 'Panamá', PY: 'Paraguay', PE: 'Perú',
-  PR: 'Puerto Rico', DO: 'República Dominicana', UY: 'Uruguay', VE: 'Venezuela', OT: 'Otro'
-};
+import PlanBadge from '../components/PlanBadge';
 
 export default function Profile() {
-  const raw = localStorage.getItem('user');
-  let user = null;
-  try { user = raw ? JSON.parse(raw) : null; } catch (e) { user = null; }
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) setUser(JSON.parse(stored));
+    } catch (e) { setUser(null); }
+  }, []);
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="bg-background min-h-screen text-on-background">
         <Navbar />
-        <main className="pt-32 px-6">
-          <div className="max-w-3xl mx-auto bg-white/60 dark:bg-surface/60 p-8 rounded-2xl border border-white/20">
-            <h2 className="text-2xl font-black mb-4">Mi perfil</h2>
-            <p className="text-sm text-on-surface-variant">No hay usuario autenticado. Inicia sesión para ver tu perfil.</p>
+        <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto">
+          <div className="bg-white/80 dark:bg-[#1a1512]/80 backdrop-blur-lg rounded-2xl border border-slate-200 dark:border-outline-variant/30 p-8 text-center">
+            <h2 className="text-xl font-black">Perfil</h2>
+            <p className="text-sm text-on-surface-variant mt-2">No hay información de usuario disponible.</p>
           </div>
         </main>
       </div>
     );
   }
 
-  const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-  const country = countryNames[user.country] || user.country || '—';
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
-      <main className="pt-32 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1 bg-white/60 dark:bg-surface/60 p-6 rounded-2xl border border-white/20 flex flex-col items-center">
-              <div className={`w-24 h-24 rounded-full flex items-center justify-center text-3xl font-black text-white ${user.plan === 'pro' ? 'bg-gradient-to-br from-orange-500 to-amber-600' : 'bg-primary-container'}`}>
-                {user.firstName?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase()}
+
+      <main className="pt-32 pb-24 px-gutter max-w-6xl mx-auto flex flex-col gap-8">
+        {/* Top wide card with avatar, name and plan */}
+        <section className="w-full">
+          <div className="bg-white/80 dark:bg-[#1a1512]/80 backdrop-blur-xl rounded-3xl border border-slate-200 dark:border-outline-variant/30 p-8 shadow-xl flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-shrink-0">
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center text-4xl md:text-5xl font-black text-white"
+                style={{ background: user.plan === 'pro' ? 'linear-gradient(135deg,#ff8a00,#ffca28)' : '#2563EB' }}>
+                {user.firstName?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
               </div>
-              <h3 className="mt-4 text-lg font-extrabold text-slate-800 dark:text-on-surface truncate text-center">{fullName || user.email}</h3>
-              <p className="text-xs text-on-surface-variant mt-1">{user.plan === 'pro' ? 'PRO' : 'Free'}</p>
             </div>
 
-            <div className="md:col-span-2 bg-white/60 dark:bg-surface/60 p-6 rounded-2xl border border-white/20">
-              <h2 className="text-xl font-black mb-4">Información</h2>
+            <div className="flex-1">
+              <h1 className="text-2xl md:text-3xl font-black text-on-surface">{user.firstName} {user.lastName}</h1>
+              <p className="text-sm text-on-surface-variant mt-1">{user.email}</p>
+              <div className="mt-4 flex items-center gap-3">
+                <PlanBadge plan={user.plan === 'pro' ? 'pro' : 'free'} />
+                <span className="text-xs text-slate-500 dark:text-on-surface-variant">Miembro desde {user.created_at ? new Date(user.created_at).toLocaleDateString() : '—'}</span>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Nombre</label>
-                  <div className="p-3 bg-slate-50 rounded-md">{user.firstName || '—'}</div>
-                </div>
+            <div className="self-stretch flex items-center md:justify-end md:flex-col gap-3">
+              <button
+                onClick={() => navigator.clipboard?.writeText(user.email)}
+                className="px-4 py-2 rounded-xl bg-surface-variant dark:bg-surface-container-high text-sm font-bold border border-outline hover:opacity-90 transition-colors"
+              >Copiar email</button>
+              <button
+                onClick={() => alert('Editar perfil (pendiente)')}
+                className="px-4 py-2 rounded-xl bg-primary-container text-white font-bold hover:opacity-95 transition-all"
+              >Editar perfil</button>
+            </div>
+          </div>
+        </section>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Apellido</label>
-                  <div className="p-3 bg-slate-50 rounded-md">{user.lastName || '—'}</div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Email</label>
-                  <div className="p-3 bg-slate-50 rounded-md break-words">{user.email}</div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Teléfono</label>
-                  <div className="p-3 bg-slate-50 rounded-md">{user.phone || '—'}</div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">País</label>
-                  <div className="p-3 bg-slate-50 rounded-md">{country}</div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Plan</label>
-                  <div className="p-3 bg-slate-50 rounded-md">{user.plan || 'free'}</div>
-                </div>
+        {/* Information card below */}
+        <section className="w-full">
+          <div className="-mt-6 bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg rounded-2xl border border-slate-200 dark:border-outline-variant/30 p-6 shadow-sm">
+            <h2 className="text-lg font-black mb-4">Información</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-surface-container rounded-xl">
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Nombre</p>
+                <p className="font-bold text-on-surface">{user.firstName} {user.lastName}</p>
               </div>
 
-              <div className="mt-6 flex gap-3">
-                <button className="px-4 py-3 rounded-xl font-bold bg-primary-container text-white">Editar perfil</button>
-                <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.reload(); }} className="px-4 py-3 rounded-xl font-bold bg-red-500 text-white">Cerrar sesión</button>
+              <div className="p-4 bg-surface-container rounded-xl">
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Email</p>
+                <p className="font-bold text-on-surface truncate">{user.email}</p>
+              </div>
+
+              <div className="p-4 bg-surface-container rounded-xl">
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">País</p>
+                <p className="font-bold text-on-surface">{user.country || '—'}</p>
+              </div>
+
+              <div className="p-4 bg-surface-container rounded-xl">
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Teléfono</p>
+                <p className="font-bold text-on-surface">{user.phone || '—'}</p>
+              </div>
+
+              <div className="p-4 bg-surface-container rounded-xl">
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Plan</p>
+                <p className="font-bold text-on-surface">{user.plan || 'free'}</p>
+              </div>
+
+              <div className="p-4 bg-surface-container rounded-xl">
+                <p className="text-xs text-on-surface-variant uppercase font-black mb-2">Última actividad</p>
+                <p className="font-bold text-on-surface">{user.last_login ? new Date(user.last_login).toLocaleString() : '—'}</p>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );

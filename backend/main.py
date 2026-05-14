@@ -236,8 +236,12 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)): # 👈 QUITA
         "access_token": access_token, 
         "token_type": "bearer", 
         "user": {
+            "id": new_user.id,
             "email": new_user.email, 
             "firstName": new_user.first_name,
+            "lastName": new_user.last_name,
+            "phone": new_user.phone,
+            "country": new_user.country,
             "plan": new_user.plan.name if new_user.plan else "free"
         }
     }
@@ -254,8 +258,12 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)): # 👈 QUITA E
         "access_token": access_token, 
         "token_type": "bearer", 
         "user": {
+            "id": user.id,
             "email": user.email, 
             "firstName": user.first_name,
+            "lastName": user.last_name,
+            "phone": user.phone,
+            "country": user.country,
             "plan": user.plan.name if user.plan else "free"
         }
     }
