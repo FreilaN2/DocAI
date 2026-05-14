@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
@@ -32,8 +32,8 @@ const countryList = [
   { code: 'OT', name: 'Otro' }
 ];
 
-// Clases CSS reutilizables
-const inputBaseClasses = "w-full p-4 h-[56px] bg-slate-100/50 dark:bg-surface-variant/30 border-b-2 border-outline/30 rounded-t-xl focus:border-primary-container focus:bg-orange-50 dark:focus:bg-primary/10 outline-none text-sm transition-colors duration-200 dark:text-on-surface placeholder:text-slate-400 dark:placeholder:text-on-surface-variant/50";
+// Clases CSS reutilizables basadas en variables del sistema (index.css)
+const inputBaseClasses = "w-full p-4 h-[56px] bg-black/5 dark:bg-black/20 border-b-2 border-outline/30 rounded-t-xl focus:border-primary-container focus:bg-primary-container/10 outline-none text-sm transition-colors duration-200 text-on-surface placeholder:text-on-surface-variant/50";
 const labelBaseClasses = "text-[11px] font-bold text-on-surface-variant uppercase tracking-widest ml-1 mb-1 block";
 
 export default function Auth() {
@@ -116,7 +116,7 @@ export default function Auth() {
         };
 
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/${endpoint}`, payload);
+      const response = await api.post(`/${endpoint}`, payload);
       
       if (response.data.status === 'success') {
         localStorage.setItem('token', response.data.access_token);
@@ -165,8 +165,8 @@ export default function Auth() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          // Ancho fijo: Se acabaron las deformaciones horizontales
-          className="w-full max-w-md bg-white/60 dark:bg-surface/60 backdrop-blur-2xl rounded-card border border-white/20 dark:border-outline-variant/10 p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_80px_-20px_rgba(255,107,0,0.1)]"
+          // Ancho máximo y fondo controlado para evitar invisibilidad de texto
+          className="w-full max-w-md bg-surface/80 dark:bg-surface/90 backdrop-blur-2xl rounded-card border border-outline-variant/10 p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_80px_-20px_rgba(255,107,0,0.1)]"
         >
           <div className="text-center mb-8">
             <h1 className="text-3xl font-black tracking-tighter text-on-surface mb-2 leading-tight">

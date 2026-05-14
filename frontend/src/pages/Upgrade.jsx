@@ -165,8 +165,9 @@ export default function Upgrade() {
                     onClick={() => handleSubscribe(plan.months)}
                     disabled={loading === `sub-${plan.months}`}
                     className={`w-full py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2
+                      ${plan.popular
                         ? 'bg-primary-container text-white shadow-lg shadow-orange-200 dark:shadow-orange-900/20 hover:opacity-90'
-                        : 'bg-slate-50 dark:bg-surface-variant text-on-surface border border-slate-200 dark:border-outline-variant/30 hover:bg-slate-100 dark:hover:bg-surface-container-high'}`}
+                        : 'bg-surface-variant/20 dark:bg-surface-variant text-on-surface border border-outline/10 dark:border-outline-variant/30 hover:bg-surface-variant/30 dark:hover:bg-surface-container-high'}`}
                   >
                     {loading === `sub-${plan.months}` ? (
                       <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
