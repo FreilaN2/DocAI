@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
+import API_BASE_URL from '../api/config';
 
 // Lista de países
 const countryList = [
@@ -116,7 +117,7 @@ export default function Auth() {
         };
 
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/${endpoint}`, payload);
+      const response = await axios.post(`${API_BASE_URL}/${endpoint}`, payload);
       
       if (response.data.status === 'success') {
         localStorage.setItem('token', response.data.access_token);

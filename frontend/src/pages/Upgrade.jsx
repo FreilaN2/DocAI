@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
+import API_BASE_URL from '../api/config';
 
 const SUBSCRIPTION_PLANS = [
   { months: 1, price: 12, label: '1 Mes', pricePerMonth: 12, saving: null },
@@ -38,7 +39,7 @@ export default function Upgrade() {
     if (!getToken()) { navigate('/login'); return; }
     setLoading(`sub-${months}`);
     try {
-      const resp = await axios.post('http://127.0.0.1:8000/pago/suscripcion',
+      const resp = await axios.post(`${API_BASE_URL}/pago/suscripcion`,
         { months },
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );
@@ -55,7 +56,7 @@ export default function Upgrade() {
     if (!getToken()) { navigate('/login'); return; }
     setLoading(`pack-${packId}`);
     try {
-      const resp = await axios.post('http://127.0.0.1:8000/pago/pack-tokens',
+      const resp = await axios.post(`${API_BASE_URL}/pago/pack-tokens`,
         { pack_id: packId },
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );

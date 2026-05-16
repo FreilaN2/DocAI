@@ -5,6 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Navbar from '../components/Navbar';
+import API_BASE_URL from '../api/config';
 
 export default function PaymentSuccess() {
   const { t } = useTranslation();
@@ -39,8 +40,8 @@ export default function PaymentSuccess() {
     const confirm = async () => {
       const token = localStorage.getItem('token');
       const endpoint = pending.type === 'pack'
-        ? 'http://127.0.0.1:8000/pago/confirmar-pack'
-        : 'http://127.0.0.1:8000/pago/confirmar-suscripcion';
+        ? `${API_BASE_URL}/pago/confirmar-pack`
+        : `${API_BASE_URL}/pago/confirmar-suscripcion`;
 
       const payload = { order_id: orderId };
       if (pending.type === 'pack') payload.pack_id = pending.pack_id;

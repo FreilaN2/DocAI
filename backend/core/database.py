@@ -4,6 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import logging
+import time
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -81,6 +83,12 @@ def _run_safe_migrations(conn):
         conn.rollback()
 
 
+@retry(
+    stop=stop_after_attempt(10),
+    wait=wait_fixed(5),
+    retry=retry_if_exception_type(Exception),
+    before_sleep=lambda retry_state: logger.info(f"⏳ Esperando a MySQL... (Intento {retry_state.attempt_number})")
+)
 def init_db():
     # 1. Crear la base de datos si no existe
     temp_engine = create_engine(f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}")

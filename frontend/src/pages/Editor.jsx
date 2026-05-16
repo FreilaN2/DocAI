@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import PlanBadge from '../components/PlanBadge';
 import ParagraphCard from '../components/ParagraphCard';
+import API_BASE_URL from '../api/config';
 
 export default function Editor() {
   const { plan } = useParams();
@@ -43,7 +44,7 @@ export default function Editor() {
       try {
         const userData = JSON.parse(storedUser);
         if (userData.plan === 'pro') {
-          axios.get('http://127.0.0.1:8000/tokens/balance', {
+          axios.get(`${API_BASE_URL}/tokens/balance`, {
             headers: { Authorization: `Bearer ${token}` }
           }).then(r => {
             setTokenBalance(r.data);
@@ -92,11 +93,11 @@ export default function Editor() {
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/procesar-apa/', formData, { headers });
+      const response = await axios.post(`${API_BASE_URL}/procesar-apa/`, formData, { headers });
       setResult(response.data);
       // Actualizar saldo tras análisis
       if (isPro && token) {
-        const balResp = await axios.get('http://127.0.0.1:8000/tokens/balance', { headers: { Authorization: `Bearer ${token}` } });
+        const balResp = await axios.get(`${API_BASE_URL}/tokens/balance`, { headers: { Authorization: `Bearer ${token}` } });
         setTokenBalance(balResp.data);
       }
     } catch (error) {
@@ -127,8 +128,8 @@ export default function Editor() {
         parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
         incluir_indice: includeTOC
       };
-      const response = await axios.post('http://127.0.0.1:8000/generar-final/', payload);
-      window.location.href = `http://127.0.0.1:8000/descargar/${response.data.file_id}`;
+      const response = await axios.post(`${API_BASE_URL}/generar-final/`, payload);
+      window.location.href = `${API_BASE_URL}/descargar/${response.data.file_id}`;
     } catch (error) {
       alert("Error al generar el documento final.");
     } finally {
