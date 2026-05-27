@@ -148,7 +148,7 @@ export default function Upgrade() {
                   <ul className="space-y-2 mb-6 flex-grow">
                     <li className="flex items-center gap-2 text-xs text-on-surface">
                       <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span>
-                      1,000 tokens/mes
+                      500 tokens/mes
                     </li>
                     <li className="flex items-center gap-2 text-xs text-on-surface">
                       <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span>

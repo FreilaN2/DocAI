@@ -18,6 +18,14 @@ export default function Editor() {
   const [includeTOC, setIncludeTOC] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(null);
+  // Estado de progreso SSE
+  const [progreso, setProgreso] = useState(0);
+  const [loteActual, setLoteActual] = useState(0);
+  const [totalLotes, setTotalLotes] = useState(0);
+  const [tiempoRestante, setTiempoRestante] = useState(null);
+  const [modeloUsado, setModeloUsado] = useState('');
+  const [errorProceso, setErrorProceso] = useState(null);
+  const esRef = React.useRef(null); // referencia al EventSource activo
 
   const token = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
@@ -82,28 +90,78 @@ export default function Editor() {
   const handleUpload = async () => {
     if (!file) return;
     setLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('edicion', edicion);
-    formData.append('plan', plan);
-
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    setProgreso(0);
+    setLoteActual(0);
+    setTotalLotes(0);
+    setTiempoRestante(null);
+    setModeloUsado('');
+    setErrorProceso(null);
 
     try {
-      const response = await api.post('/procesar-apa/', formData);
-      setResult(response.data);
-      // Actualizar saldo tras análisis
-      if (isPro && token) {
-        const balResp = await api.get('/tokens/balance');
-        setTokenBalance(balResp.data);
-      }
+      // ── Paso 1: Subir el archivo ───────────────────────────────────────
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadResp = await api.post('/upload-documento/', formData);
+      const { upload_id } = uploadResp.data;
+
+      // ── Paso 2: Conectar SSE para procesar ────────────────────────────
+      const baseURL = api.defaults.baseURL || '';
+      const sseUrl = `${baseURL}/procesar-apa/stream?upload_id=${upload_id}&edicion=${edicion}&plan=${plan}&token=${token}`;
+
+      const es = new EventSource(sseUrl);
+      esRef.current = es;
+
+      es.onmessage = (e) => {
+        const evento = JSON.parse(e.data);
+
+        if (evento.tipo === 'inicio') {
+          setTotalLotes(evento.total_lotes);
+          setModeloUsado(evento.modelo || '');
+        }
+
+        if (evento.tipo === 'lote') {
+          setProgreso(evento.progreso);
+          setLoteActual(evento.lote);
+          setTotalLotes(evento.total_lotes);
+          setTiempoRestante(evento.tiempo_estimado);
+        }
+
+        if (evento.tipo === 'finalizado') {
+          setProgreso(100);
+          setResult({
+            detalles: evento.detalles,
+            resumen: evento.stats,
+          });
+          es.close();
+          esRef.current = null;
+          setLoading(false);
+          // Actualizar saldo tras análisis
+          if (isPro && token) {
+            api.get('/tokens/balance').then(r => setTokenBalance(r.data)).catch(() => {});
+          }
+        }
+
+        if (evento.tipo === 'error') {
+          setErrorProceso(evento.mensaje || 'Error desconocido en el procesamiento.');
+          es.close();
+          esRef.current = null;
+          setLoading(false);
+        }
+      };
+
+      es.onerror = () => {
+        setErrorProceso('Se perdió la conexión con el servidor.');
+        es.close();
+        esRef.current = null;
+        setLoading(false);
+      };
+
     } catch (error) {
       if (error.response?.status === 402) {
-        alert("Sin tokens disponibles. Por favor adquiere más tokens en la página de Upgrade.");
+        setErrorProceso('Sin tokens disponibles. Adquiere más en la página de Upgrade.');
       } else {
-        alert("Error en la comunicación con el servidor.");
+        setErrorProceso('Error al subir el archivo. Inténtalo de nuevo.');
       }
-    } finally {
       setLoading(false);
     }
   };
@@ -134,9 +192,10 @@ export default function Editor() {
     }
   };
 
-  // Calcular porcentaje de tokens restantes
+  // Calcular porcentaje de tokens restantes (máximo: 500 tokens Pro)
+  const TOKEN_MAX_PRO = 500;
   const tokenPercent = tokenBalance
-    ? Math.round(((tokenBalance.monthly_tokens + tokenBalance.extra_tokens) / 1000) * 100)
+    ? Math.round(((tokenBalance.monthly_tokens + tokenBalance.extra_tokens) / TOKEN_MAX_PRO) * 100)
     : 0;
   const hasTokens = tokenBalance && (tokenBalance.monthly_tokens + tokenBalance.extra_tokens) > 0;
   const noTokensForPro = isPro && tokenBalance !== null && !hasTokens;
@@ -259,19 +318,80 @@ export default function Editor() {
                   {!file && !isDragging && <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">{t('editor.drag_drop')}</p>}
                 </motion.label>
 
-                <button
-                  onClick={handleUpload}
-                  disabled={loading || !file || noTokensForPro}
-                  className={`w-full mt-8 py-5 rounded-2xl font-black text-white shadow-lg transition-all flex items-center justify-center gap-3 active:scale-95
-                    ${loading || !file || noTokensForPro ? 'bg-slate-200 dark:bg-surface-variant text-slate-400 dark:text-on-surface-variant/50 cursor-not-allowed shadow-none' : 'bg-primary-container shadow-primary-container/20'}`}
-                >
-                  {loading ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                      className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
-                  ) : (
-                    <><span className="material-symbols-outlined">auto_fix_high</span> {t('editor.analyze')}</>
-                  )}
-                </button>
+                {/* Botón de análisis / Barra de progreso SSE */}
+                {loading ? (
+                  <div className="mt-8 space-y-3">
+                    {/* Cabecera de progreso */}
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-on-surface-variant px-1">
+                      <span className="flex items-center gap-1.5">
+                        <motion.span
+                          animate={{ opacity: [1, 0.4, 1] }}
+                          transition={{ repeat: Infinity, duration: 1.2 }}
+                          className="w-2 h-2 rounded-full bg-primary-container inline-block"
+                        />
+                        {totalLotes > 0
+                          ? `Lote ${loteActual} de ${totalLotes}`
+                          : 'Preparando análisis...'}
+                      </span>
+                      <span className="text-primary-container font-black">{progreso}%</span>
+                    </div>
+
+                    {/* Barra de progreso animada */}
+                    <div className="w-full bg-slate-100 dark:bg-surface-variant rounded-full h-3 overflow-hidden">
+                      <motion.div
+                        animate={{ width: `${progreso}%` }}
+                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                        className="h-3 rounded-full bg-gradient-to-r from-orange-400 to-primary-container relative"
+                      >
+                        {/* Brillo deslizante */}
+                        <motion.div
+                          animate={{ x: ['-100%', '200%'] }}
+                          transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                          className="absolute inset-0 bg-white/30 skew-x-12"
+                        />
+                      </motion.div>
+                    </div>
+
+                    {/* Info extra */}
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold px-1">
+                      <span>
+                        {modeloUsado.includes('scout')
+                          ? '🚀 Modelo Avanzado (Scout 17B)'
+                          : modeloUsado.includes('70b')
+                          ? '⚡ Modelo Estándar (70B)'
+                          : '🔧 Motor de reglas'}
+                      </span>
+                      {tiempoRestante !== null && tiempoRestante > 0 && (
+                        <span>~{tiempoRestante}s restantes</span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {errorProceso && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">error</span>
+                        {errorProceso}
+                      </motion.div>
+                    )}
+                    <button
+                      id="btn-analizar-documento"
+                      onClick={handleUpload}
+                      disabled={!file || noTokensForPro}
+                      className={`w-full mt-8 py-5 rounded-2xl font-black text-white shadow-lg transition-all flex items-center justify-center gap-3 active:scale-95
+                        ${!file || noTokensForPro
+                          ? 'bg-slate-200 dark:bg-surface-variant text-slate-400 dark:text-on-surface-variant/50 cursor-not-allowed shadow-none'
+                          : 'bg-primary-container shadow-primary-container/20'}`}
+                    >
+                      <span className="material-symbols-outlined">auto_fix_high</span>
+                      {t('editor.analyze')}
+                    </button>
+                  </>
+                )}
               </div>
             </motion.section>
           ) : (

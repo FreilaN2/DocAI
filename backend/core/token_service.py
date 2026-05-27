@@ -9,7 +9,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-TOKENS_PER_GROQ_UNIT = 1000  # 1 Token DocAI = 1,000 tokens reales de Groq
+TOKENS_PER_GROQ_UNIT = 100  # 1 Token DocAI = 100 tokens reales de Groq
 
 
 def groq_tokens_to_docai(groq_tokens: int) -> int:

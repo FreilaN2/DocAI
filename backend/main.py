@@ -1,16 +1,18 @@
 import os
 import shutil
+import json
+import uuid
 from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Query
+from fastapi.responses import FileResponse, StreamingResponse
 import time
 from datetime import datetime
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from pydantic import BaseModel
-from typing import List
+from typing import List, AsyncGenerator
 import io
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -18,7 +20,7 @@ from google.auth.transport import requests as google_requests
 # Importar motores de procesamiento y base de datos
 from core.database import init_db, get_db
 from core.apa_rules import procesar_con_reglas
-from core.apa_ai import procesar_con_ia
+from core.apa_ai import procesar_con_ia, procesar_con_ia_stream
 from core.auth import get_password_hash, verify_password, create_access_token
 from core.models import User, Plan, TokenBalance
 from core.token_service import (
@@ -126,6 +128,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PROCESSED_DIR, exist_ok=True)
 
 storage = {}
+upload_storage = {}  # upload_id → (ruta_archivo, nombre_original)
 
 def limpiar_archivos_antiguos():
     """Elimina archivos con más de 24 horas de antigüedad"""
@@ -381,6 +384,104 @@ def configurar_parrafo_estilo(paragraph, categoria, reglas):
             run.font.name = reglas["fuente"]
             run.font.size = Pt(reglas["tamano"])
 
+# ── POST /upload-documento/ — Paso 1: guardar archivo y obtener upload_id ──
+@app.post("/upload-documento/")
+async def upload_documento(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Guarda el .docx temporalmente y retorna un upload_id para el stream SSE."""
+    background_tasks.add_task(limpiar_archivos_antiguos)
+
+    if not file.filename.endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos .docx")
+
+    contents = await file.read()
+    upload_id = str(uuid.uuid4())
+    input_path = os.path.join(UPLOAD_DIR, f"{upload_id}_{file.filename}")
+    with open(input_path, "wb") as f:
+        f.write(contents)
+
+    upload_storage[upload_id] = (input_path, file.filename)
+    logger.info(f"📤 Upload #{upload_id}: {file.filename} ({len(contents)} bytes)")
+    return {"upload_id": upload_id, "filename": file.filename}
+
+
+# ── GET /procesar-apa/stream — Paso 2: SSE con progreso en tiempo real ──
+@app.get("/procesar-apa/stream")
+async def procesar_apa_stream(
+    upload_id: str = Query(...),
+    edicion: str = Query("7ma"),
+    plan: str = Query("free"),
+    token: str = Query(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Endpoint SSE: procesa el documento lote a lote y emite eventos de progreso.
+    El JWT llega como query param porque EventSource no soporta headers custom.
+    """
+    # Validar JWT
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        current_user = db.query(User).filter(User.email == email).first()
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+    except HTTPException:
+        raise
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token JWT inválido o expirado")
+    except Exception as e:
+        logger.error(f"Error validando JWT en SSE: {e}")
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    if upload_id not in upload_storage:
+        raise HTTPException(status_code=404, detail="upload_id no encontrado. Sube el archivo primero.")
+    input_path, filename = upload_storage[upload_id]
+
+    if plan == "pro":
+        balance = get_available_tokens(current_user.id, db)
+        if balance["total"] <= 0:
+            raise HTTPException(status_code=402, detail="Sin tokens disponibles.")
+
+    try:
+        with open(input_path, "rb") as f:
+            doc = Document(io.BytesIO(f.read()))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el .docx: {str(e)}")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        groq_tokens_total = 0
+        try:
+            if plan == "pro":
+                async for evento in procesar_con_ia_stream(doc.paragraphs):
+                    if evento.get("tipo") == "finalizado":
+                        groq_tokens_total = evento.get("groq_tokens", 0)
+                        consume_tokens(current_user.id, groq_tokens_total, filename, db)
+                        try:
+                            os.remove(input_path)
+                            del upload_storage[upload_id]
+                        except Exception:
+                            pass
+                    yield f"data: {json.dumps(evento, ensure_ascii=False)}\n\n"
+            else:
+                resultado = procesar_con_reglas(doc.paragraphs)
+                yield f"data: {json.dumps({'tipo': 'inicio', 'total_lotes': 1, 'progreso': 0, 'modelo': 'reglas'}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'tipo': 'finalizado', 'progreso': 100, 'stats': resultado['stats'], 'detalles': resultado['detalles'], 'groq_tokens': 0}, ensure_ascii=False)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'tipo': 'error', 'mensaje': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+# ── POST /procesar-apa/ — Endpoint original (compatibilidad) ──
 @app.post("/procesar-apa/")
 async def procesar_documento(
     background_tasks: BackgroundTasks,
@@ -533,7 +634,7 @@ SUBSCRIPTION_PRICES = {
     6:  60.00,   # $10/mes
     12: 108.00,  # $9/mes
 }
-TOKENS_PER_MONTH_PRO = 1000
+TOKENS_PER_MONTH_PRO = 500  # 500 DocAI tokens = ~5 docs/mes por usuario Pro
 
 class SuscripcionRequest(BaseModel):
     months: int  # 1, 3, 6 o 12
@@ -703,8 +804,6 @@ async def listar_packs(db: Session = Depends(get_db)):
 # ═══════════════════════════════════════════════════════════
 # INTEGRACIÓN DE FRONTEND (REACT) DENTRO DE FASTAPI
 # ═══════════════════════════════════════════════════════════
-from fastapi.responses import FileResponse
-import os
 
 @app.get("/{catchall:path}")
 def serve_react_app(catchall: str):
