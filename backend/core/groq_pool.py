@@ -96,7 +96,7 @@ class GroqKeyPool:
         """Carga las keys desde las variables de entorno GROQ_API_KEY_1..6."""
         load_dotenv()
         self.keys = []
-        for i in range(1, 7):
+        for i in range(1, 9):
             key_value = os.getenv(f"GROQ_API_KEY_{i}", "").strip()
             if key_value:
                 state = KeyState(key_id=i, api_key=key_value)
