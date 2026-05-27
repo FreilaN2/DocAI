@@ -34,4 +34,4 @@ tenacity==9.1.4           # Reintentos con backoff exponencial (usado en apa_ai.
 pydantic==2.13.3          # Validación de datos y modelos de request/response
 requests==2.32.5          # Peticiones HTTP
 python-dateutil==2.9.0.post0 # Manejo de fechas para cálculo de tokens
-cffi==1.17.1              # Interfaz de funciones foráneas (necesario para cryptography en Windows)
+cffi==2.0.0              # Interfaz de funciones foráneas (necesario para cryptography en Windows)
