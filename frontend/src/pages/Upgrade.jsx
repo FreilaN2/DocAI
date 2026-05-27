@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import api from '../api';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
@@ -42,6 +42,7 @@ export default function Upgrade() {
       localStorage.setItem('pending_purchase', JSON.stringify({ type: 'subscription', months }));
       window.location.href = resp.data.approval_url;
     } catch (err) {
+      console.error("Detalle completo del error de suscripción:", err);
       toast.error(err.response?.data?.detail || 'Error al crear el pago');
     } finally {
       setLoading(null);
@@ -56,6 +57,7 @@ export default function Upgrade() {
       localStorage.setItem('pending_purchase', JSON.stringify({ type: 'pack', pack_id: packId }));
       window.location.href = resp.data.approval_url;
     } catch (err) {
+      console.error("Detalle completo del error del pack:", err);
       toast.error(err.response?.data?.detail || 'Error al crear el pago');
     } finally {
       setLoading(null);
