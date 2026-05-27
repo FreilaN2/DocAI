@@ -38,10 +38,7 @@ export default function Upgrade() {
     if (!getToken()) { navigate('/login'); return; }
     setLoading(`sub-${months}`);
     try {
-      const resp = await axios.post('http://127.0.0.1:8000/pago/suscripcion',
-        { months },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+      const resp = await api.post('/pago/suscripcion', { months });
       localStorage.setItem('pending_purchase', JSON.stringify({ type: 'subscription', months }));
       window.location.href = resp.data.approval_url;
     } catch (err) {
@@ -55,10 +52,7 @@ export default function Upgrade() {
     if (!getToken()) { navigate('/login'); return; }
     setLoading(`pack-${packId}`);
     try {
-      const resp = await axios.post('http://127.0.0.1:8000/pago/pack-tokens',
-        { pack_id: packId },
-        { headers: { Authorization: `Bearer ${getToken()}` } }
-      );
+      const resp = await api.post('/pago/pack-tokens', { pack_id: packId });
       localStorage.setItem('pending_purchase', JSON.stringify({ type: 'pack', pack_id: packId }));
       window.location.href = resp.data.approval_url;
     } catch (err) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import api from '../api';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Navbar from '../components/Navbar';
@@ -37,19 +37,16 @@ export default function PaymentSuccess() {
     const pending = JSON.parse(pendingStr);
 
     const confirm = async () => {
-      const token = localStorage.getItem('token');
       const endpoint = pending.type === 'pack'
-        ? 'http://127.0.0.1:8000/pago/confirmar-pack'
-        : 'http://127.0.0.1:8000/pago/confirmar-suscripcion';
+        ? '/pago/confirmar-pack'
+        : '/pago/confirmar-suscripcion';
 
       const payload = { order_id: orderId };
       if (pending.type === 'pack') payload.pack_id = pending.pack_id;
       if (pending.type === 'subscription') payload.months = pending.months;
 
       try {
-        const resp = await axios.post(endpoint, payload,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        const resp = await api.post(endpoint, payload);
         setStatus('success');
         setMessage(resp.data.message || '¡Pago confirmado!');
         toast.success('¡Pago procesado con éxito! 🎉');
