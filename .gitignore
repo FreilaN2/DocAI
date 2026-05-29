@@ -13,7 +13,7 @@ __pycache__/
 *.pyo
 
 # Distribuciones / builds
-dist/
+backend/dist/
 build/
 *.egg-info/
 
@@ -28,8 +28,8 @@ build/
 # Dependencias
 node_modules/
 
-# Build de producción
-frontend/dist/
+# Build de producción — INCLUIDO para Railway (descomentar si solo usas cPanel)
+# frontend/dist/
 frontend/.vite/
 
 # Logs de npm

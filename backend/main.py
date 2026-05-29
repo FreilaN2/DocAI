@@ -76,14 +76,19 @@ def diagnostico_db(db: Session = Depends(get_db)):
             "error_real": str(e)
         }
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
 # --- MIDDLEWARE Y SEGURIDAD ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",           # Desarrollo local
         "http://127.0.0.1:5173",           # Desarrollo local (alternativo)
-        "https://docai.teleredtv.com",     # Producción
-        "http://docai.teleredtv.com",      # Producción (sin SSL por si acaso)
+        "https://docai.teleredtv.com",     # Producción cPanel
+        "http://docai.teleredtv.com",      # Producción cPanel (sin SSL)
+        "https://*.up.railway.app",        # Railway (cualquier subdominio)
     ],
     allow_credentials=True,
     allow_methods=["*"],
