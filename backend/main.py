@@ -89,6 +89,7 @@ app.add_middleware(
         "https://docai.teleredtv.com",     # Producción cPanel
         "http://docai.teleredtv.com",      # Producción cPanel (sin SSL)
         "https://*.up.railway.app",        # Railway (cualquier subdominio)
+        "https://docai-production-6334.up.railway.app",  # Railway (dominio específico)
     ],
     allow_credentials=True,
     allow_methods=["*"],
