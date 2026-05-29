@@ -4,9 +4,10 @@ import axios from 'axios';
 const IS_PRODUCTION = import.meta.env.PROD;
 
 const api = axios.create({
-  // URL directa y segura, sin depender de archivos .env externos
+  // En producción (Railway/cPanel) el backend y frontend están en el mismo dominio,
+  // por lo que usar '' hará que Axios use el dominio actual automáticamente.
   baseURL: IS_PRODUCTION 
-    ? 'https://docai.teleredtv.com' 
+    ? '' 
     : 'http://127.0.0.1:8000',
 });
 
