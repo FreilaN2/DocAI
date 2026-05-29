@@ -14,8 +14,16 @@ DB_PASS = os.getenv("DB_PASS", "")
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 if DB_HOST == "localhost":
     DB_HOST = "127.0.0.1"
-DB_NAME = os.getenv("DB_NAME", "docai_db")
-DB_PORT = os.getenv("DB_PORT", "3306")
+# DB_NAME: intentar múltiples variables que Railway puede usar
+DB_NAME = (
+    os.getenv("DB_NAME")
+    or os.getenv("MYSQLDATABASE")       # Railway: sin guion bajo
+    or os.getenv("MYSQL_DATABASE")      # Railway: con guion bajo
+    or "railway"                        # Nombre por defecto en Railway
+)
+DB_PORT = os.getenv("DB_PORT", "3306") or "3306"
+
+logger.info(f"📋 DB config → host={DB_HOST}:{DB_PORT} db={DB_NAME} user={DB_USER}")
 
 # Railway provee MYSQL_URL directamente — usarla si está disponible
 RAILWAY_MYSQL_URL = os.getenv("MYSQL_URL", "")
