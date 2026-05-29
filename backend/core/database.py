@@ -1,4 +1,5 @@
 import os
+import traceback
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -10,24 +11,28 @@ logger = logging.getLogger(__name__)
 
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASS = os.getenv("DB_PASS", "")
-
-# BLINDAJE 1: Forzamos la conexión por IP interna en cPanel
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 if DB_HOST == "localhost":
     DB_HOST = "127.0.0.1"
-
 DB_NAME = os.getenv("DB_NAME", "docai_db")
 DB_PORT = os.getenv("DB_PORT", "3306")
 
-DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# Railway provee MYSQL_URL directamente — usarla si está disponible
+RAILWAY_MYSQL_URL = os.getenv("MYSQL_URL", "")
+if RAILWAY_MYSQL_URL:
+    # Railway usa mysql:// pero SQLAlchemy necesita mysql+pymysql://
+    DATABASE_URL = RAILWAY_MYSQL_URL.replace("mysql://", "mysql+pymysql://", 1)
+    logger.info(f"🚂 Usando MYSQL_URL de Railway")
+else:
+    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    logger.info(f"🗄️ Usando variables DB_* individuales: host={DB_HOST}:{DB_PORT}")
 
-# BLINDAJE 2: Parámetros anti-congelamiento para cPanel
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,      # Verifica que la conexión esté viva antes de usarla
-    pool_recycle=280,        # Reinicia la conexión antes de que cPanel la mate (300s)
-    pool_size=5,             # Límite de conexiones simultáneas
-    max_overflow=10          # Margen de seguridad
+    pool_pre_ping=True,
+    pool_recycle=280,
+    pool_size=5,
+    max_overflow=10
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

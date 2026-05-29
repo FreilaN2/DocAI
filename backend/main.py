@@ -58,22 +58,31 @@ def prueba_rapida():
 
 @app.get("/diagnostico-db")
 def diagnostico_db(db: Session = Depends(get_db)):
+    import os, traceback
+    config_info = {
+        "MYSQL_URL_presente": bool(os.getenv("MYSQL_URL")),
+        "DB_HOST": os.getenv("DB_HOST", "NO_DEFINIDO"),
+        "DB_PORT": os.getenv("DB_PORT", "NO_DEFINIDO"),
+        "DB_USER": os.getenv("DB_USER", "NO_DEFINIDO"),
+        "DB_NAME": os.getenv("DB_NAME", "NO_DEFINIDO"),
+        "DB_PASS_presente": bool(os.getenv("DB_PASS")),
+    }
     try:
-        # 1. Probar que las credenciales del .env funcionan
         db.execute(text("SELECT 1"))
-        
-        # 2. Forzar la creación de las tablas de forma manual
         init_db()
-        
         return {
-            "status": "success", 
-            "mensaje": "✅ Conexión a MySQL exitosa y tablas creadas/verificadas correctamente."
+            "status": "success",
+            "mensaje": "✅ Conexión a MySQL exitosa y tablas creadas/verificadas correctamente.",
+            "config": config_info
         }
     except Exception as e:
         return {
-            "status": "error", 
-            "mensaje": "🚨 Falla al conectar con MySQL o al crear tablas", 
-            "error_real": str(e)
+            "status": "error",
+            "mensaje": "🚨 Falla al conectar con MySQL o al crear tablas",
+            "error_real": str(e),
+            "error_tipo": type(e).__name__,
+            "traceback": traceback.format_exc(),
+            "config": config_info
         }
 
 @app.get("/health")
