@@ -824,10 +824,10 @@ async def listar_packs(db: Session = Depends(get_db)):
 def serve_react_app(catchall: str):
     # Ruta en servidor cPanel donde podrían estar los archivos compilados (producción)
     cpanel_frontend = "/home2/teleredt/public_html/docai.teleredtv.com"
-    # Ruta local del frontend dentro del repo (desarrollo local)
-    project_root = os.path.abspath(os.path.join(BASE_DIR, ".."))
-    local_frontend = os.path.join(project_root, "frontend")
-    # Elegir directorio efectivo: preferir cPanel si contiene index.html, sino usar local
+    # Ruta local/Railway del frontend compilado (ahora está dentro de backend/dist)
+    backend_root = os.path.dirname(os.path.abspath(__file__))
+    local_frontend = os.path.join(backend_root, "dist")
+    # Elegir directorio efectivo: preferir cPanel si existe, sino usar local/Railway
     chosen_frontend = cpanel_frontend if os.path.exists(os.path.join(cpanel_frontend, "index.html")) else local_frontend
 
     file_path = os.path.join(chosen_frontend, catchall)

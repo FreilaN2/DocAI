@@ -13,7 +13,6 @@ __pycache__/
 *.pyo
 
 # Distribuciones / builds
-backend/dist/
 build/
 *.egg-info/
 
