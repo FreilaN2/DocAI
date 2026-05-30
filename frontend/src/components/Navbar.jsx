@@ -60,10 +60,10 @@ export default function Navbar() {
   return (
     <>
     <nav className="fixed top-0 w-full z-50 bg-white/70 dark:bg-[#110e0c]/80 backdrop-blur-lg border-b border-slate-200/50 dark:border-outline-variant/30 shadow-sm font-sans transition-colors duration-300">
-      <div className="flex justify-between items-center max-w-7xl mx-auto px-8 h-20">
-        <Link to="/" className="flex items-center gap-2 no-underline hover:opacity-90 transition-opacity">
-          <img src="/LOGO.png" alt="DocIA" className="h-10 sm:h-12 w-auto dark:hidden" />
-          <img src="/LOGO2.png" alt="DocIA" className="h-10 sm:h-12 w-auto hidden dark:block" />
+      <div className="flex justify-between items-center max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20">
+        <Link to="/" className="flex items-center gap-2 no-underline hover:opacity-90 transition-opacity min-w-0 flex-shrink">
+          <img src="/LOGO.png" alt="DocIA" className="h-7 sm:h-12 w-auto object-contain dark:hidden" />
+          <img src="/LOGO2.png" alt="DocIA" className="h-7 sm:h-12 w-auto object-contain hidden dark:block" />
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
@@ -74,15 +74,15 @@ export default function Navbar() {
           <Link to="/upgrade" className="text-slate-600 dark:text-on-surface-variant font-medium hover:text-primary-container dark:hover:text-primary-container transition-colors no-underline">{t('navbar.pricing')}</Link>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           {/* Language Toggle */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={toggleLanguage}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:bg-surface-container-high text-slate-600 dark:text-on-surface-variant transition-colors border border-slate-200 dark:border-outline/50"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:bg-surface-container-high text-slate-600 dark:text-on-surface-variant transition-colors border border-slate-200 dark:border-outline/50"
           >
-            <span className="material-symbols-outlined text-sm">language</span>
-            <span className="text-[10px] font-black uppercase tracking-widest">
+            <span className="material-symbols-outlined text-[16px] sm:text-sm">language</span>
+            <span className="text-[10px] font-black uppercase tracking-widest hidden xs:block">
               {i18n.language?.startsWith('es') ? 'EN' : 'ES'}
             </span>
           </motion.button>
@@ -91,9 +91,9 @@ export default function Navbar() {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:bg-surface-container-high text-slate-600 dark:text-on-surface-variant transition-colors border border-slate-200 dark:border-outline/50"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:bg-surface-container-high text-slate-600 dark:text-on-surface-variant transition-colors border border-slate-200 dark:border-outline/50"
           >
-            <span className="material-symbols-outlined text-[18px]">
+            <span className="material-symbols-outlined text-[16px] sm:text-[18px]">
               {theme === 'dark' ? 'light_mode' : 'dark_mode'}
             </span>
           </motion.button>
@@ -105,16 +105,16 @@ export default function Navbar() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="flex items-center gap-3 bg-slate-50 dark:bg-surface-variant p-1.5 pr-4 rounded-full border border-slate-200 dark:border-outline/50"
+                className="flex items-center gap-2 sm:gap-3 bg-slate-50 dark:bg-surface-variant p-1 sm:p-1.5 pr-2 sm:pr-4 rounded-full border border-slate-200 dark:border-outline/50"
               >
                 {/* Avatar con inicial */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm text-white
                   ${isPro ? 'bg-gradient-to-br from-orange-500 to-amber-600' : 'bg-primary-container'}`}>
                   {user.firstName?.charAt(0).toUpperCase()}
                 </div>
 
                 {/* Nombre + Badge PRO */}
-                <div className="hidden sm:flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2">
                   <Link to="/profile" className="text-sm font-bold text-slate-700 dark:text-on-surface no-underline">{t('navbar.hello')}{user.firstName}</Link>
                   {isPro ? (
                     <span className="text-[9px] font-black bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest">
@@ -127,11 +127,16 @@ export default function Navbar() {
                     </Link>
                   )}
                 </div>
+                
+                {/* Enlace al perfil solo visible en mobile (en vez del nombre) */}
+                <Link to="/profile" className="md:hidden flex items-center material-symbols-outlined text-slate-400 hover:text-primary-container transition-colors text-[20px] no-underline">
+                  person
+                </Link>
 
                 {/* Botón logout */}
                 <button
                   onClick={() => setShowLogoutConfirm(true)}
-                  className="material-symbols-outlined text-slate-400 hover:text-red-500 transition-colors text-xl"
+                  className="material-symbols-outlined text-slate-400 hover:text-red-500 transition-colors text-[20px] sm:text-xl ml-1 sm:ml-0"
                   title={t('navbar.logout_title')}
                 >
                   logout
@@ -143,12 +148,12 @@ export default function Navbar() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="flex items-center gap-4"
+                className="flex items-center gap-2 sm:gap-4"
               >
-                <Link to="/login" className="text-slate-600 dark:text-on-surface-variant hover:text-primary-container dark:hover:text-primary-container transition-colors font-medium no-underline hidden sm:block">
+                <Link to="/login" className="text-slate-600 dark:text-on-surface-variant hover:text-primary-container dark:hover:text-primary-container transition-colors text-sm font-medium no-underline hidden sm:block">
                   {t('navbar.login')}
                 </Link>
-                <Link to="/register" className="bg-primary-container text-white font-bold px-4 py-2 rounded-btn shadow-sm hover:opacity-90 transition-all no-underline">
+                <Link to="/register" className="bg-primary-container text-white text-xs sm:text-base font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-btn shadow-sm hover:opacity-90 transition-all no-underline whitespace-nowrap">
                   {t('navbar.get_started')}
                 </Link>
               </motion.div>

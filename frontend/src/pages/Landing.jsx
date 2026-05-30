@@ -38,8 +38,8 @@ export default function Landing() {
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
       
-      {/* Ambient Background Elements with Animation */}
-      <div className="fixed inset-0 z-[-1] pointer-events-none">
+      {/* Ambient Background Elements with Animation - Hidden on mobile */}
+      <div className="fixed inset-0 z-[-1] pointer-events-none hidden md:block">
         <motion.div 
           animate={{ scale: [1, 1.1, 1], x: [0, 20, 0], y: [0, -20, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}

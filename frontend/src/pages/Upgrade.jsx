@@ -77,8 +77,8 @@ export default function Upgrade() {
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
 
-      {/* Ambient blobs */}
-      <div className="fixed inset-0 z-[-1] pointer-events-none">
+      {/* Ambient blobs - Hidden on mobile to improve performance */}
+      <div className="fixed inset-0 z-[-1] pointer-events-none hidden md:block">
         <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 10, repeat: Infinity }}
           className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-orange-100 rounded-full blur-[140px] opacity-70" />
         <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 14, repeat: Infinity }}
