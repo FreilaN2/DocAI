@@ -62,8 +62,8 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full z-50 bg-white/70 dark:bg-[#110e0c]/80 backdrop-blur-lg border-b border-slate-200/50 dark:border-outline-variant/30 shadow-sm font-sans transition-colors duration-300">
       <div className="flex justify-between items-center max-w-7xl mx-auto px-8 h-20">
         <Link to="/" className="flex items-center gap-2 no-underline hover:opacity-90 transition-opacity">
-          <img src="/LOGOP.png" alt="DocIA" className="h-10 sm:h-12 w-auto dark:hidden" />
-          <img src="/LOGOP2.png" alt="DocIA" className="h-10 sm:h-12 w-auto hidden dark:block" />
+          <img src="/LOGO.png" alt="DocIA" className="h-10 sm:h-12 w-auto dark:hidden" />
+          <img src="/LOGO2.png" alt="DocIA" className="h-10 sm:h-12 w-auto hidden dark:block" />
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
