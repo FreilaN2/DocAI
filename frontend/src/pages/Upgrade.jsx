@@ -7,16 +7,16 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 
 const SUBSCRIPTION_PLANS = [
-  { months: 1, price: 12, label: '1 Mes', pricePerMonth: 12, saving: null },
-  { months: 3, price: 33, label: '3 Meses', pricePerMonth: 11, saving: '8%' },
-  { months: 6, price: 60, label: '6 Meses', pricePerMonth: 10, saving: '17%' },
-  { months: 12, price: 108, label: '12 Meses', pricePerMonth: 9, saving: '25%', popular: true },
+  { months: 1, price: 5, label: '1 Mes', pricePerMonth: '5.00', saving: null },
+  { months: 3, price: 14, label: '3 Meses', pricePerMonth: '4.67', saving: '7%' },
+  { months: 6, price: 25, label: '6 Meses', pricePerMonth: '4.17', saving: '17%' },
+  { months: 12, price: 45, label: '12 Meses', pricePerMonth: '3.75', saving: '25%', popular: true },
 ];
 
 const TOKEN_PACKS = [
-  { id: 1, name: 'Starter Pack', price: 3, tokens: 200, icon: 'token', color: 'from-slate-400 to-slate-500' },
-  { id: 2, name: 'Standard Pack', price: 6, tokens: 500, icon: 'diamond', color: 'from-blue-500 to-indigo-600' },
-  { id: 3, name: 'Power Pack', price: 10, tokens: 1000, icon: 'bolt', color: 'from-orange-500 to-red-600', popular: true },
+  { id: 1, name: 'Starter Pack', price: 2, tokens: 100, icon: 'token', color: 'from-slate-400 to-slate-500' },
+  { id: 2, name: 'Standard Pack', price: 5, tokens: 300, icon: 'diamond', color: 'from-blue-500 to-indigo-600' },
+  { id: 3, name: 'Power Pack', price: 7, tokens: 500, icon: 'bolt', color: 'from-orange-500 to-red-600', popular: true },
 ];
 
 export default function Upgrade() {
@@ -28,9 +28,12 @@ export default function Upgrade() {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (!stored) navigate('/login');
-    else setUserInfo(JSON.parse(stored));
-  }, [navigate]);
+    if (stored) {
+      try {
+        setUserInfo(JSON.parse(stored));
+      } catch (e) {}
+    }
+  }, []);
 
   const getToken = () => localStorage.getItem('token');
 
@@ -93,30 +96,32 @@ export default function Upgrade() {
             DocAI Pro
           </span>
           <h1 className="text-5xl font-black tracking-tight text-on-surface mb-4">
-            Potencia tu investigación
+            {t('upgrade.title')}
           </h1>
           <p className="text-on-surface-variant text-lg max-w-xl mx-auto">
-            Análisis con IA avanzada. Resultados en segundos. Sin complicaciones.
+            {t('upgrade.subtitle')}
           </p>
         </motion.div>
 
-        {/* Tab Switcher */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center mb-10">
-          <div className="inline-flex bg-slate-100 dark:bg-surface-variant p-1 rounded-2xl border border-slate-200 dark:border-outline-variant/30">
-            <button
-              onClick={() => setSelectedTab('subscription')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${selectedTab === 'subscription' ? 'bg-white dark:bg-surface text-on-surface shadow-sm' : 'text-slate-500 dark:text-on-surface-variant'}`}
-            >
-              Suscripciones
-            </button>
-            <button
-              onClick={() => setSelectedTab('packs')}
-              className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${selectedTab === 'packs' ? 'bg-white dark:bg-surface text-on-surface shadow-sm' : 'text-slate-500 dark:text-on-surface-variant'}`}
-            >
-              Paquetes de Tokens
-            </button>
-          </div>
-        </motion.div>
+        {/* Tab Switcher - Visible for guests and PRO users, hidden for FREE users */}
+        {(!userInfo || userInfo.plan === 'pro') && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center mb-10">
+            <div className="inline-flex bg-slate-100 dark:bg-surface-variant p-1 rounded-2xl border border-slate-200 dark:border-outline-variant/30">
+              <button
+                onClick={() => setSelectedTab('subscription')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${selectedTab === 'subscription' ? 'bg-white dark:bg-surface text-on-surface shadow-sm' : 'text-slate-500 dark:text-on-surface-variant'}`}
+              >
+                {t('upgrade.tab_subs')}
+              </button>
+              <button
+                onClick={() => setSelectedTab('packs')}
+                className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${selectedTab === 'packs' ? 'bg-white dark:bg-surface text-on-surface shadow-sm' : 'text-slate-500 dark:text-on-surface-variant'}`}
+              >
+                {t('upgrade.tab_packs')}
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Subscription Plans */}
         {selectedTab === 'subscription' && (
@@ -129,7 +134,7 @@ export default function Upgrade() {
                 >
                   {plan.popular && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary-container text-white text-[10px] font-black px-3 py-1 rounded-full whitespace-nowrap">
-                      ⚡ MEJOR VALOR
+                      {t('upgrade.best_value')}
                     </div>
                   )}
                   {plan.saving && (
@@ -137,22 +142,22 @@ export default function Upgrade() {
                       -{plan.saving}
                     </span>
                   )}
-                  <div className="text-sm font-bold text-slate-500 dark:text-on-surface-variant mb-1">{plan.label}</div>
+                  <div className="text-sm font-bold text-slate-500 dark:text-on-surface-variant mb-1">{plan.months} {plan.months === 1 ? t('upgrade.month') : t('upgrade.months')}</div>
                   <div className="text-4xl font-black text-on-surface mb-1">${plan.price}</div>
-                  <div className="text-xs text-slate-400 dark:text-on-surface-variant/70 font-bold mb-4">${plan.pricePerMonth}/mes</div>
+                  <div className="text-xs text-slate-400 dark:text-on-surface-variant/70 font-bold mb-4">${plan.pricePerMonth}{t('upgrade.per_month')}</div>
 
                   <ul className="space-y-2 mb-6 flex-grow">
                     <li className="flex items-center gap-2 text-xs text-on-surface">
                       <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span>
-                      500 tokens/mes
+                      {t('upgrade.feat_tokens')}
                     </li>
                     <li className="flex items-center gap-2 text-xs text-on-surface">
                       <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span>
-                      Análisis IA ilimitado
+                      {t('upgrade.feat_ai')}
                     </li>
                     <li className="flex items-center gap-2 text-xs text-on-surface">
                       <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span>
-                      Sin marca de agua
+                      {t('upgrade.feat_watermark')}
                     </li>
                   </ul>
 
@@ -169,7 +174,7 @@ export default function Upgrade() {
                       <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
                         className="w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
                     ) : (
-                      <><span className="material-symbols-outlined text-sm">credit_card</span> Suscribirme</>
+                      <><span className="material-symbols-outlined text-sm">credit_card</span> {t('upgrade.btn_subscribe')}</>
                     )}
                   </motion.button>
                 </motion.div>
@@ -180,7 +185,7 @@ export default function Upgrade() {
             <div className="flex justify-center">
               <div className="inline-flex items-center gap-2 text-xs text-slate-400 font-bold">
                 <span className="material-symbols-outlined text-sm">lock</span>
-                Pago seguro vía PayPal · Cancela cuando quieras
+                {t('upgrade.secure_paypal')}
               </div>
             </div>
           </motion.div>
@@ -192,7 +197,7 @@ export default function Upgrade() {
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-2xl p-4 mb-8 flex items-center gap-3">
               <span className="material-symbols-outlined text-amber-600 dark:text-amber-500">info</span>
               <p className="text-sm text-amber-800 dark:text-amber-500 font-medium">
-                Los tokens extra <strong>no caducan</strong> y se acumulan. Úsalos cuando los necesites.
+                {t('upgrade.token_alert_1')}<strong>{t('upgrade.token_alert_strong')}</strong>{t('upgrade.token_alert_2')}
               </p>
             </div>
 
@@ -204,7 +209,7 @@ export default function Upgrade() {
                 >
                   {pack.popular && (
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary-container text-white text-[10px] font-black px-3 py-1 rounded-full whitespace-nowrap">
-                      🔥 MÁS POPULAR
+                      {t('upgrade.most_popular')}
                     </div>
                   )}
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${pack.color} flex items-center justify-center mb-4 shadow-lg`}>
@@ -227,7 +232,7 @@ export default function Upgrade() {
                       <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
                         className="w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
                     ) : (
-                      <><span className="material-symbols-outlined text-sm">shopping_cart</span> Comprar</>
+                      <><span className="material-symbols-outlined text-sm">shopping_cart</span> {t('upgrade.btn_buy')}</>
                     )}
                   </motion.button>
                 </motion.div>

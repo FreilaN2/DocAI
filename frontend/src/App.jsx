@@ -8,6 +8,8 @@ import Auth from './pages/Auth';
 import Profile from './pages/Profile';
 import Upgrade from './pages/Upgrade';
 import PaymentSuccess from './pages/PaymentSuccess';
+import Support from './pages/Support';
+import Tools from './pages/Tools';
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
         <Route path="/login" element={<Auth />} />
         <Route path="/register" element={<Auth />} />
         <Route path="/upgrade" element={<Upgrade />} />
+        <Route path="/support" element={<Support />} />
+        <Route path="/tools" element={<Tools />} />
         <Route path="/pago/exitoso" element={<PaymentSuccess />} />
       </Routes>
     </Router>

@@ -73,7 +73,7 @@ def create_order(amount: float, description: str, custom_id: str = "") -> dict:
             }
         ],
         "application_context": {
-            "brand_name": "DocAI",
+            "brand_name": "DocIA",
             "landing_page": "NO_PREFERENCE",
             "user_action": "PAY_NOW",
             "return_url": f"{FRONTEND_URL}/pago/exitoso",

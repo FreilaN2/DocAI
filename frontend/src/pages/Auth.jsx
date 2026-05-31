@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { GoogleLogin } from '@react-oauth/google';
@@ -34,13 +34,19 @@ const countryList = [
 ];
 
 // Clases CSS reutilizables basadas en variables del sistema (index.css)
-const inputBaseClasses = "w-full p-4 h-[56px] bg-black/5 dark:bg-black/20 border-b-2 border-outline/30 rounded-t-xl focus:border-primary-container focus:bg-primary-container/10 outline-none text-sm transition-colors duration-200 text-on-surface placeholder:text-on-surface-variant/50";
+const inputBaseClasses = "w-full py-4 pr-4 pl-12 h-[56px] bg-black/5 dark:bg-black/20 border-b-2 border-outline/30 rounded-t-xl focus:border-primary-container focus:bg-primary-container/10 outline-none text-sm transition-colors duration-200 text-on-surface placeholder:text-on-surface-variant/50";
 const labelBaseClasses = "text-[11px] font-bold text-on-surface-variant uppercase tracking-widest ml-1 mb-1 block";
 
 export default function Auth() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  const [isLogin, setIsLogin] = useState(location.pathname !== '/register');
+  
+  useEffect(() => {
+    setIsLogin(location.pathname !== '/register');
+  }, [location.pathname]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -242,30 +248,39 @@ export default function Auth() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.first_name')}</label>
-                      <input
-                        type="text" name="firstName" required={!isLogin}
-                        placeholder="John" className={inputBaseClasses}
-                        onChange={handleChange} value={formData.firstName}
-                      />
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">person</span>
+                        <input
+                          type="text" name="firstName" required={!isLogin}
+                          placeholder="John" className={inputBaseClasses}
+                          onChange={handleChange} value={formData.firstName}
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.last_name')}</label>
-                      <input
-                        type="text" name="lastName" required={!isLogin}
-                        placeholder="Doe" className={inputBaseClasses}
-                        onChange={handleChange} value={formData.lastName}
-                      />
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">person</span>
+                        <input
+                          type="text" name="lastName" required={!isLogin}
+                          placeholder="Doe" className={inputBaseClasses}
+                          onChange={handleChange} value={formData.lastName}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.phone')}</label>
-                      <input
-                        type="tel" name="phone" required={!isLogin}
-                        placeholder="+1 234 567 890" className={inputBaseClasses}
-                        onChange={handleChange} value={formData.phone}
-                      />
+                      <div className="relative">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">call</span>
+                        <input
+                          type="tel" name="phone" required={!isLogin}
+                          placeholder="+1 234 567 890" className={inputBaseClasses}
+                          onChange={handleChange} value={formData.phone}
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-1" ref={dropdownRef}>
@@ -276,6 +291,7 @@ export default function Auth() {
                           onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
                           className={`${inputBaseClasses} flex justify-between items-center ${isCountryDropdownOpen ? 'border-primary-container bg-orange-50 dark:bg-primary/10' : ''} ${!formData.country ? 'text-slate-400 dark:text-on-surface-variant/50' : 'text-on-surface'}`}
                         >
+                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">public</span>
                           <span className="truncate pr-2">{selectedCountryName}</span>
                           <span className="material-symbols-outlined text-slate-400 dark:text-on-surface-variant text-xl transition-transform duration-300" style={{ transform: isCountryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                             keyboard_arrow_down
@@ -318,20 +334,26 @@ export default function Auth() {
             {/* CAMPOS SIEMPRE VISIBLES */}
             <div className="space-y-1">
               <label className={labelBaseClasses}>{t('auth.email')}</label>
-              <input
-                type="email" name="email" required
-                placeholder="email@example.com" className={inputBaseClasses}
-                onChange={handleChange} value={formData.email}
-              />
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">mail</span>
+                <input
+                  type="email" name="email" required
+                  placeholder="email@example.com" className={inputBaseClasses}
+                  onChange={handleChange} value={formData.email}
+                />
+              </div>
             </div>
 
             <div className="space-y-1">
               <label className={labelBaseClasses}>{t('auth.password')}</label>
-              <input
-                type="password" name="password" required
-                placeholder="••••••••" className={inputBaseClasses}
-                onChange={handleChange} value={formData.password}
-              />
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
+                <input
+                  type="password" name="password" required
+                  placeholder="••••••••" className={inputBaseClasses}
+                  onChange={handleChange} value={formData.password}
+                />
+              </div>
             </div>
 
             <AnimatePresence mode="wait">
@@ -343,11 +365,14 @@ export default function Auth() {
                   className="space-y-1 overflow-hidden"
                 >
                   <label className={labelBaseClasses}>{t('auth.confirm_password')}</label>
-                  <input
-                    type="password" name="confirmPassword" required={!isLogin}
-                    placeholder="••••••••" className={inputBaseClasses}
-                    onChange={handleChange} value={formData.confirmPassword}
-                  />
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">lock</span>
+                    <input
+                      type="password" name="confirmPassword" required={!isLogin}
+                      placeholder="••••••••" className={inputBaseClasses}
+                      onChange={handleChange} value={formData.confirmPassword}
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -385,11 +410,9 @@ export default function Auth() {
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={() => toast.error("Error en Google Login")}
-                useOneTap
                 theme={document.documentElement.classList.contains('dark') ? 'dark' : 'outline'}
                 shape="pill"
                 size="large"
-                width="100%"
               />
             </div>
           </div>

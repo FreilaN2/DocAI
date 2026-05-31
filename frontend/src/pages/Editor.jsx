@@ -213,7 +213,7 @@ export default function Editor() {
       </div>
 
       <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto flex flex-col gap-8">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center justify-end mb-4">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center justify-center sm:justify-end mb-4">
           <PlanBadge plan={plan} />
         </motion.div>
 
@@ -222,16 +222,16 @@ export default function Editor() {
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
             className="bg-white/80 dark:bg-[#1a1512]/80 backdrop-blur-lg rounded-2xl border border-slate-200 dark:border-outline-variant/30 p-4 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-2">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary-container text-sm">token</span>
                 <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('editor.tokens_available')}</span>
               </div>
-              <div className="flex items-center gap-3 text-xs font-bold">
-                <span className="text-primary-container">
+              <div className="flex items-center justify-between sm:justify-end gap-3 text-xs font-bold w-full sm:w-auto">
+                <span className="text-primary-container flex-1 sm:flex-none">
                   {tokenBalance.monthly_tokens} {t('editor.tokens_monthly')} + {tokenBalance.extra_tokens} {t('editor.tokens_extra')}
                 </span>
-                <Link to="/upgrade" className="text-[10px] font-black px-2 py-1 rounded-full bg-orange-100 text-primary-container hover:bg-orange-200 transition-colors no-underline">
+                <Link to="/upgrade" className="text-[10px] font-black px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-primary-container hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors no-underline whitespace-nowrap shrink-0">
                   + Tokens
                 </Link>
               </div>

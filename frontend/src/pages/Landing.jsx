@@ -1,12 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 
 export default function Landing() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [openFaq, setOpenFaq] = useState(null);
+
+  const toggleFaq = (index) => {
+    setOpenFaq(openFaq === index ? null : index);
+  };
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -84,6 +89,92 @@ export default function Landing() {
           </motion.div>
         </section>
 
+        {/* How it Works Section */}
+        <section className="max-w-5xl mx-auto w-full mt-24 px-4">
+          <motion.div variants={itemVariants} className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-on-surface">{t('landing.hiw_title')}</h2>
+            <p className="text-on-surface-variant mt-2 text-lg">{t('landing.hiw_subtitle')}</p>
+          </motion.div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+            {/* Connecting line for desktop */}
+            <div className="hidden md:block absolute top-12 left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-primary-container/0 via-primary-container/30 to-primary-container/0 z-0"></div>
+            
+            <motion.div variants={itemVariants} className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-24 h-24 rounded-full bg-white dark:bg-surface border-4 border-slate-100 dark:border-outline-variant/30 flex items-center justify-center mb-6 shadow-xl">
+                <span className="material-symbols-outlined text-4xl text-primary-container">upload_file</span>
+              </div>
+              <h3 className="text-xl font-bold text-on-surface mb-3">{t('landing.hiw_step1_title')}</h3>
+              <p className="text-on-surface-variant leading-relaxed">{t('landing.hiw_step1_desc')}</p>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-24 h-24 rounded-full bg-white dark:bg-surface border-4 border-slate-100 dark:border-outline-variant/30 flex items-center justify-center mb-6 shadow-xl">
+                <span className="material-symbols-outlined text-4xl text-primary-container">auto_fix</span>
+              </div>
+              <h3 className="text-xl font-bold text-on-surface mb-3">{t('landing.hiw_step2_title')}</h3>
+              <p className="text-on-surface-variant leading-relaxed">{t('landing.hiw_step2_desc')}</p>
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-24 h-24 rounded-full bg-white dark:bg-surface border-4 border-slate-100 dark:border-outline-variant/30 flex items-center justify-center mb-6 shadow-xl">
+                <span className="material-symbols-outlined text-4xl text-primary-container">download_done</span>
+              </div>
+              <h3 className="text-xl font-bold text-on-surface mb-3">{t('landing.hiw_step3_title')}</h3>
+              <p className="text-on-surface-variant leading-relaxed">{t('landing.hiw_step3_desc')}</p>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Features Grid Section */}
+        <section className="max-w-6xl mx-auto w-full mt-32 px-4 mb-16">
+          <motion.div variants={itemVariants} className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-on-surface">{t('landing.feat_title')}</h2>
+            <p className="text-on-surface-variant mt-2 text-lg">{t('landing.feat_subtitle')}</p>
+          </motion.div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-3xl">my_location</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-on-surface mb-2">{t('landing.feat1_title')}</h3>
+                <p className="text-on-surface-variant leading-relaxed">{t('landing.feat1_desc')}</p>
+              </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-3xl">timer</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-on-surface mb-2">{t('landing.feat2_title')}</h3>
+                <p className="text-on-surface-variant leading-relaxed">{t('landing.feat2_desc')}</p>
+              </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-3xl">shield_lock</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-on-surface mb-2">{t('landing.feat3_title')}</h3>
+                <p className="text-on-surface-variant leading-relaxed">{t('landing.feat3_desc')}</p>
+              </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+              <div className="w-14 h-14 shrink-0 rounded-2xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                <span className="material-symbols-outlined text-orange-600 dark:text-orange-400 text-3xl">format_list_numbered</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-on-surface mb-2">{t('landing.feat4_title')}</h3>
+                <p className="text-on-surface-variant leading-relaxed">{t('landing.feat4_desc')}</p>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
         {/* Pricing Cards */}
         <section className="max-w-4xl mx-auto w-full mt-16 flex flex-col items-center gap-stack-md">
           <motion.div variants={itemVariants} className="text-center mb-12">
@@ -108,10 +199,13 @@ export default function Landing() {
               </div>
               <ul className="flex flex-col gap-4 mb-8 flex-grow">
                 <li className="flex items-center gap-3 text-on-surface">
-                  <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_basic')}
+                  <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_free_1')}
                 </li>
                 <li className="flex items-center gap-3 text-on-surface">
-                  <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_limited')}
+                  <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_free_2')}
+                </li>
+                <li className="flex items-center gap-3 text-on-surface">
+                  <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_free_3')}
                 </li>
               </ul>
               <Link to="/login" className="w-full text-center bg-white dark:bg-surface text-on-surface font-bold px-4 py-3 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors no-underline">
@@ -141,10 +235,13 @@ export default function Landing() {
                   <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_advanced')}
                 </li>
                 <li className="flex items-center gap-3 text-on-surface font-medium">
-                  <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_unlimited')}
+                  <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_pro_1')}
                 </li>
                 <li className="flex items-center gap-3 text-on-surface font-medium">
-                  <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_toc')}
+                  <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_pro_2')}
+                </li>
+                <li className="flex items-center gap-3 text-on-surface font-medium">
+                  <span className="material-symbols-outlined text-primary-container text-sm">check_circle</span> {t('landing.feature_pro_3')}
                 </li>
               </ul>
               <Link to="/upgrade" className="w-full text-center bg-primary-container text-white font-bold px-4 py-3 rounded-btn shadow-lg hover:opacity-90 transition-all no-underline">
@@ -153,12 +250,56 @@ export default function Landing() {
             </motion.div>
           </div>
         </section>
+
+        {/* FAQ Section */}
+        <section className="max-w-3xl mx-auto w-full mt-32 mb-16 px-4">
+          <motion.div variants={itemVariants} className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-on-surface">{t('landing.faq_title')}</h2>
+            <p className="text-on-surface-variant mt-2 text-lg">{t('landing.faq_subtitle')}</p>
+          </motion.div>
+          
+          <div className="flex flex-col gap-4">
+            {[1, 2, 3].map((num) => (
+              <motion.div 
+                key={num}
+                variants={itemVariants}
+                className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg border border-slate-200 dark:border-outline-variant/30 rounded-2xl overflow-hidden"
+              >
+                <button 
+                  onClick={() => toggleFaq(num)}
+                  className="w-full px-6 py-5 flex items-center justify-between text-left focus:outline-none"
+                >
+                  <span className="font-bold text-on-surface text-lg">{t(`landing.faq${num}_q`)}</span>
+                  <motion.span 
+                    animate={{ rotate: openFaq === num ? 180 : 0 }} 
+                    className="material-symbols-outlined text-on-surface-variant"
+                  >
+                    expand_more
+                  </motion.span>
+                </button>
+                <AnimatePresence>
+                  {openFaq === num && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-6 pb-5"
+                    >
+                      <p className="text-on-surface-variant leading-relaxed">{t(`landing.faq${num}_a`)}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
       </motion.main>
       
       <footer className="w-full py-12 bg-white dark:bg-[#110e0c] border-t border-slate-100 dark:border-outline-variant/30 text-xs text-slate-500 dark:text-on-surface-variant transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="font-bold text-slate-900 dark:text-on-surface text-sm">DocAI</div>
-          <div>© 2024 DocAI. Precision academic formatting powered by AI.</div>
+          <div className="font-bold text-slate-900 dark:text-on-surface text-sm">DocIA</div>
+          <div>© {new Date().getFullYear()} DocIA. Precision academic formatting powered by AI.</div>
         </div>
       </footer>
     </div>
