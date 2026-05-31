@@ -323,7 +323,7 @@ def auth_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
                 first_name=first_name,
                 last_name=last_name,
                 email=email,
-                phone="", # Google no proporciona el teléfono por defecto
+                phone=None, # Usar None para no violar UNIQUE constraint
                 country="US", # Valor por defecto
                 password_hash=get_password_hash(os.urandom(24).hex()), # Contraseña aleatoria (no se usará)
                 plan_id=1 
@@ -357,7 +357,7 @@ def auth_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Token de Google inválido o expirado.")
     except Exception as e:
         logger.error(f"Error en Google Auth: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error interno en la autenticación de Google.")
+        raise HTTPException(status_code=500, detail=f"Error interno en la autenticación de Google: {str(e)}")
 
 def añadir_marca_de_agua(doc):
     """Añade una marca de agua en el pie de página para el plan Free"""
