@@ -103,7 +103,11 @@
     "no_account": "Don't have an account?",
     "have_account": "Already have an account?",
     "switch_register": "Register here",
-    "switch_login": "Login here"
+    "switch_login": "Login here",
+    "left_title": "DocIA",
+    "left_desc": "Format your documents with APA Standards using Artificial Intelligence.",
+    "continue_with": "Or continue with",
+    "google_error": "Error during Google Login"
   },
   "payment": {
     "processing": "Processing your payment...",
