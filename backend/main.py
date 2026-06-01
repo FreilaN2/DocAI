@@ -130,9 +130,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 async def startup_event():
     logger.info("🛠️ Intentando inicializar base de datos...")
     try:
-        # init_db()  <-- Si ya tienes las tablas creadas, COMENTA esta línea temporalmente
-        # para probar si es lo que está trabando el inicio.
-        logger.info("✅ Chequeo de inicio completado.")
+        init_db()
+        logger.info("✅ Chequeo de inicio completado. Base de datos inicializada.")
     except Exception as e:
         logger.error(f"❌ Error en startup: {e}")
 
