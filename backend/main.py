@@ -130,7 +130,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
-# Inicializar base de datos al arrancar
+# Inicializar base de datos al arrancar y cargar fuentes para LibreOffice
 @app.on_event("startup")
 async def startup_event():
     logger.info("🛠️ Intentando inicializar base de datos...")
@@ -139,6 +139,38 @@ async def startup_event():
         logger.info("✅ Chequeo de inicio completado. Base de datos inicializada.")
     except Exception as e:
         logger.error(f"❌ Error en startup: {e}")
+
+    # --- INSTALACIÓN DE FUENTES PARA LIBREOFFICE (RAILWAY) ---
+    logger.info("🖋️ Verificando fuentes personalizadas...")
+    try:
+        fonts_dir = os.path.join(BASE_DIR, "fonts")
+        user_fonts_dir = os.path.expanduser("~/.local/share/fonts")
+        
+        if os.path.exists(fonts_dir):
+            os.makedirs(user_fonts_dir, exist_ok=True)
+            fuentes_instaladas = False
+            
+            for font_file in os.listdir(fonts_dir):
+                if font_file.lower().endswith(('.ttf', '.otf')):
+                    src = os.path.join(fonts_dir, font_file)
+                    dst = os.path.join(user_fonts_dir, font_file)
+                    
+                    # Copiar la fuente solo si no existe ya en el sistema
+                    if not os.path.exists(dst):
+                        shutil.copy(src, dst)
+                        logger.info(f"📥 Fuente copiada: {font_file}")
+                        fuentes_instaladas = True
+            
+            # Refrescar la caché de fuentes de Linux para que LibreOffice las detecte
+            if fuentes_instaladas:
+                subprocess.run(["fc-cache", "-f", "-v"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                logger.info("✅ Caché de fuentes actualizada. LibreOffice ahora tiene Times New Roman.")
+            else:
+                logger.info("✅ Las fuentes ya estaban instaladas en el sistema.")
+        else:
+            logger.warning("⚠️ No se encontró la carpeta 'fonts'. LibreOffice usará fuentes por defecto.")
+    except Exception as e:
+        logger.error(f"❌ Error al intentar cargar las fuentes: {e}")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
@@ -169,7 +201,6 @@ def limpiar_archivos_antiguos():
                         logger.info(f"🧹 Limpieza: Archivo antiguo eliminado: {archivo}")
                     except Exception as e:
                         logger.error(f"❌ Error al limpiar {archivo}: {e}")
-
 # Diccionario de Reglas APA
 NORMAS_APA = {
     "6ta": {
