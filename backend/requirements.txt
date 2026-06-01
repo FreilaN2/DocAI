@@ -23,6 +23,7 @@ google-auth==2.38.0       # Integración con Google Login API
 # --- Procesamiento de Documentos Word ---
 python-docx==1.2.0        # Leer y escribir archivos .docx
 lxml==6.1.0               # Dependencia de python-docx para parseo XML
+docx2pdf==0.1.8          # Convertir documentos .docx a PDF en Windows con Word instalado
 
 # --- Inteligencia Artificial ---
 groq==1.2.0               # Cliente oficial de la API de Groq (Llama 3.3 70B)

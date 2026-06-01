@@ -1,7 +1,10 @@
 import os
+import re
+import sys
 import shutil
 import json
 import uuid
+import subprocess
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Query
 from fastapi.responses import FileResponse, StreamingResponse
@@ -9,6 +12,8 @@ import time
 from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from docx import Document
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from pydantic import BaseModel
@@ -209,6 +214,7 @@ class DatosFinales(BaseModel):
     filename: str
     plan: str = "free"
     incluir_indice: bool = False
+    formato: str = "docx"
 
 class UserCreate(BaseModel):
     firstName: str
@@ -373,10 +379,19 @@ def configurar_parrafo_estilo(paragraph, categoria, reglas):
     
     if "TITULO" in categoria:
         nivel = categoria.split("_")[-1]
+        nivel_num = 1
+        try:
+            nivel_num = int(nivel.replace("N", ""))
+        except ValueError:
+            nivel_num = 1
+        style_level = min(max(nivel_num, 1), 3)
+        paragraph.style = f"Heading {style_level}"
+
         config = reglas["títulos"].get(nivel, reglas["títulos"]["N1"])
-        
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if config["align"] == "center" else WD_ALIGN_PARAGRAPH.LEFT
+        paragraph.paragraph_format.space_before = Pt(6)
+        paragraph.paragraph_format.space_after = Pt(6)
         paragraph.paragraph_format.first_line_indent = Inches(reglas["sangria_primera_linea"]) if config["align"] == "indent" else Inches(0)
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if config["align"] == "center" else WD_ALIGN_PARAGRAPH.LEFT
 
         for run in paragraph.runs:
             run.bold = config["bold"]
@@ -385,18 +400,54 @@ def configurar_parrafo_estilo(paragraph, categoria, reglas):
             run.font.size = Pt(reglas["tamano"])
 
     elif categoria == "REFERENCIA":
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         paragraph.paragraph_format.first_line_indent = Inches(-reglas["sangria_francesa"])
         paragraph.paragraph_format.left_indent = Inches(reglas["sangria_francesa"])
+        paragraph.paragraph_format.keep_together = True
         for run in paragraph.runs:
             run.font.name = reglas["fuente"]
             run.font.size = Pt(reglas["tamano"])
     else:
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         paragraph.paragraph_format.first_line_indent = Inches(reglas["sangria_primera_linea"])
         for run in paragraph.runs:
             run.font.name = reglas["fuente"]
             run.font.size = Pt(reglas["tamano"])
+
+
+def _insertar_tabla_de_contenidos(doc):
+    paragraph = doc.add_paragraph()
+    fld_simple = OxmlElement('w:fldSimple')
+    fld_simple.set(qn('w:instr'), 'TOC \\o "1-3" \\h \\z \\u')
+    fld_simple.set(qn('w:dirty'), 'true')
+    paragraph._p.append(fld_simple)
+
+
+def _configurar_encabezado_paginas(doc):
+    for section in doc.sections:
+        section.header.is_linked_to_previous = False
+        header = section.header
+        paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+        paragraph.text = ""
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.paragraph_format.space_after = Pt(0)
+        run = paragraph.add_run()
+        fld_simple = OxmlElement('w:fldSimple')
+        fld_simple.set(qn('w:instr'), 'PAGE \\* MERGEFORMAT')
+        run._r.append(fld_simple)
+
+
+def _force_update_fields(doc):
+    settings = getattr(doc, 'settings', None)
+    if settings is None:
+        return
+    element = getattr(settings, 'element', None)
+    if element is None:
+        return
+    update = OxmlElement('w:updateFields')
+    update.set(qn('w:val'), 'true')
+    element.append(update)
+
 
 # ── POST /upload-documento/ — Paso 1: guardar archivo y obtener upload_id ──
 @app.post("/upload-documento/")
@@ -572,59 +623,233 @@ async def mis_tokens(
 
 @app.post("/generar-final/")
 async def generar_final(datos: DatosFinales):
-    output_filename = f"FINAL_{datos.edicion}_{datos.filename}"
-    output_path = os.path.join(PROCESSED_DIR, output_filename)
+    base_name, _ = os.path.splitext(datos.filename)
+    safe_base_name = re.sub(r"[^A-Za-z0-9 _-]", "_", base_name).strip()
+    unique_suffix = uuid.uuid4().hex
+    output_filename = f"FINAL_{datos.edicion}_{safe_base_name}_{unique_suffix}"
+    output_docx_path = os.path.join(PROCESSED_DIR, output_filename + ".docx")
+    output_path = output_docx_path
     doc = Document()
     reglas = NORMAS_APA.get(datos.edicion, NORMAS_APA["7ma"])
     
     for section in doc.sections:
         section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(reglas["margen"])
 
+    _configurar_encabezado_paginas(doc)
+
     # --- Generación de Índice si se solicita ---
     if datos.incluir_indice:
-        logger.info(f"📚 Generando Tabla de Contenidos para {len(datos.parrafos)} párrafos...")
-        doc.add_paragraph("Índice", style=None).alignment = WD_ALIGN_PARAGRAPH.CENTER
-        # Aplicar estilo al título del índice
-        for p in doc.paragraphs:
-            if p.text == "Índice":
-                for run in p.runs:
-                    run.bold = True
-                    run.font.name = reglas["fuente"]
-                    run.font.size = Pt(16)
-        
-        titulos_encontrados = 0
-        for p in datos.parrafos:
-            cat = p.categoria.upper()
-            if "TITULO" in cat:
-                titulos_encontrados += 1
-                # Extraer nivel (ej: de TITULO_N1 extrae 1)
-                try:
-                    nivel_str = cat.split("_")[-1].replace("N", "")
-                    nivel = int(nivel_str) if nivel_str.isdigit() else 1
-                except:
+        if datos.plan != "pro":
+            logger.info("📌 Índice solicitado en plan Free; la generación de Tabla de Contenidos real es exclusiva para Pro.")
+        else:
+            headings = []
+            for p in datos.parrafos:
+                cat = p.categoria.upper()
+                if "TITULO" in cat:
                     nivel = 1
-                
-                indent = (nivel - 1) * 0.3
-                item = doc.add_paragraph(p.texto)
-                item.paragraph_format.left_indent = Inches(indent)
-                item.paragraph_format.space_before = Pt(2)
-                item.paragraph_format.space_after = Pt(2)
-                for run in item.runs:
-                    run.font.name = reglas["fuente"]
-                    run.font.size = Pt(11)
-        
-        logger.info(f"📍 Se encontraron {titulos_encontrados} títulos para el índice.")
-        doc.add_page_break()
+                    try:
+                        nivel = int(cat.split("_")[-1].replace("N", ""))
+                    except Exception:
+                        nivel = 1
+                    headings.append((min(max(nivel, 1), 3), p.texto.strip()))
+
+            logger.info(f"📚 Generando Índice para {len(headings)} títulos detectados...")
+            title = doc.add_paragraph("Índice")
+            title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for run in title.runs:
+                run.bold = True
+                run.font.name = reglas["fuente"]
+                run.font.size = Pt(16)
+
+            if headings:
+                _insertar_tabla_de_contenidos(doc)
+                nota = doc.add_paragraph(
+                    "Actualiza los campos en Word para obtener los números de página reales."
+                )
+                nota.italic = True
+                nota.paragraph_format.space_before = Pt(4)
+                nota.paragraph_format.space_after = Pt(8)
+            else:
+                warning = doc.add_paragraph(
+                    "No se detectaron títulos válidos. Revisa las etiquetas de los párrafos y vuelve a generar."
+                )
+                warning.italic = True
+                warning.paragraph_format.space_before = Pt(4)
+                warning.paragraph_format.space_after = Pt(8)
+
+            doc.add_page_break()
+
+    def _normalizar_texto_para_encabezado(texto: str) -> str:
+        texto_limpio = texto.strip().lower()
+        reemplazos = str.maketrans(
+            "áéíóúüñç",
+            "aeiouunc"
+        )
+        texto_limpio = texto_limpio.translate(reemplazos)
+        texto_limpio = re.sub(r"[^a-z0-9 ]+", "", texto_limpio)
+        texto_limpio = texto_limpio.strip()
+        return texto_limpio
+
+    def _es_encabezado_referencias(texto: str) -> bool:
+        base = _normalizar_texto_para_encabezado(texto)
+        encabezados_validos = {
+            "referencias",
+            "referencia",
+            "referencias bibliograficas",
+            "referencia bibliografica",
+            "references bibliograficas",
+            "referencia bibliografica",
+            "referencias bibliograficas",
+            "bibliografia",
+            "bibliografias",
+            "bibliograficas",
+            "bibliografica"
+        }
+        if base in encabezados_validos:
+            return True
+        return ("referencia" in base and "bibliograf" in base) or base.startswith("referencia")
+
+    def _es_continuacion_encabezado_referencias(texto: str) -> bool:
+        base = _normalizar_texto_para_encabezado(texto)
+        continuaciones_validas = {
+            "bibliografia",
+            "bibliografias",
+            "bibliograficas",
+            "bibliografica",
+            "bibliografico",
+            "bibliografico"
+        }
+        return base in continuaciones_validas or base.startswith("bibliograf")
 
     # --- Generación del Cuerpo del Documento ---
-    for p in datos.parrafos:
+    reference_started = False
+    paragraph_counter = 0
+    i = 0
+    while i < len(datos.parrafos):
+        p = datos.parrafos[i]
+        cat = p.categoria.upper()
+
+        if not reference_started and _es_encabezado_referencias(p.texto):
+            if paragraph_counter > 0:
+                doc.add_page_break()
+
+            heading_texto = p.texto.strip()
+            if i + 1 < len(datos.parrafos) and _es_continuacion_encabezado_referencias(datos.parrafos[i + 1].texto):
+                heading_texto = f"{heading_texto} {datos.parrafos[i + 1].texto.strip()}"
+                i += 1
+
+            ref_heading = doc.add_paragraph(heading_texto)
+            ref_heading.style = "Heading 1"
+            for run in ref_heading.runs:
+                run.bold = True
+                run.font.name = reglas["fuente"]
+                run.font.size = Pt(reglas["tamano"])
+            ref_heading.paragraph_format.space_before = Pt(12)
+            ref_heading.paragraph_format.space_after = Pt(12)
+            reference_started = True
+            paragraph_counter += 1
+            i += 1
+            continue
+
+        if cat == "REFERENCIA" and not reference_started:
+            if paragraph_counter > 0:
+                doc.add_page_break()
+
+            ref_heading = doc.add_paragraph("Referencias")
+            ref_heading.style = "Heading 1"
+            for run in ref_heading.runs:
+                run.bold = True
+                run.font.name = reglas["fuente"]
+                run.font.size = Pt(reglas["tamano"])
+            ref_heading.paragraph_format.space_before = Pt(12)
+            ref_heading.paragraph_format.space_after = Pt(12)
+            reference_started = True
+
         paragraph = doc.add_paragraph(p.texto)
         configurar_parrafo_estilo(paragraph, p.categoria, reglas)
+        paragraph_counter += 1
+        i += 1
+
+    if datos.incluir_indice and datos.plan == "pro":
+        _force_update_fields(doc)
 
     if datos.plan == "free":
         pass  # Sin marca de agua en ningún plan
 
-    doc.save(output_path)
+    try:
+        doc.save(output_docx_path)
+    except PermissionError as e:
+        logger.error(f"❌ Permiso denegado al guardar DOCX: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo guardar el archivo DOCX. Verifica los permisos de la carpeta 'processed' y que el archivo no esté abierto." 
+        )
+    except Exception as e:
+        logger.error(f"❌ Error al guardar DOCX: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo generar el archivo DOCX. Revisa el registro del servidor para más detalles."
+        )
+
+    if datos.formato.lower() == "pdf":
+        output_pdf_path = os.path.abspath(os.path.join(PROCESSED_DIR, output_filename + ".pdf"))
+        if os.path.exists(output_pdf_path):
+            try:
+                os.remove(output_pdf_path)
+            except Exception:
+                pass
+
+        try:
+            import win32com.client
+
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = 0
+            doc_word = None
+            try:
+                doc_word = word.Documents.Open(
+                    str(output_docx_path),
+                    ReadOnly=True,
+                    AddToRecentFiles=False,
+                    Visible=False,
+                )
+                try:
+                    doc_word.ExportAsFixedFormat(
+                        OutputFileName=str(output_pdf_path),
+                        ExportFormat=17,
+                    )
+                except Exception as export_error:
+                    logger.warning(
+                        f"⚠️ ExportAsFixedFormat falló, intentando SaveAs2: {export_error}"
+                    )
+                    doc_word.SaveAs2(str(output_pdf_path), FileFormat=17)
+            except Exception as open_error:
+                logger.error(f"❌ Error al abrir o exportar DOCX con Word COM: {open_error}")
+                raise
+            finally:
+                if doc_word is not None:
+                    try:
+                        doc_word.Close(False)
+                    except Exception as close_error:
+                        logger.warning(f"⚠️ Error al cerrar el documento Word: {close_error}")
+                try:
+                    word.Quit()
+                except Exception as quit_error:
+                    logger.warning(f"⚠️ Error al cerrar Word: {quit_error}")
+
+            output_path = output_pdf_path
+        except ImportError:
+            raise HTTPException(
+                status_code=500,
+                detail="Conversión a PDF no disponible: instala pywin32 o docx2pdf.",
+            )
+        except Exception as e:
+            logger.error(f"❌ Error al convertir DOCX a PDF con Word COM: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="No se pudo convertir a PDF. Verifica que Microsoft Word esté instalado, que el archivo no esté bloqueado y que el servidor tenga permisos para crear archivos.",
+            )
+
     file_id = str(hash(output_path))
     storage[file_id] = output_path
     return {"file_id": file_id}

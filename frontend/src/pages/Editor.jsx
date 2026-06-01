@@ -16,6 +16,7 @@ export default function Editor() {
   const [edicion, setEdicion] = useState("7ma");
   const [result, setResult] = useState(null);
   const [includeTOC, setIncludeTOC] = useState(true);
+  const [downloadFormat, setDownloadFormat] = useState('docx');
   const [isDragging, setIsDragging] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(null);
   // Estado de progreso SSE
@@ -181,7 +182,8 @@ export default function Editor() {
         filename: file.name,
         plan,
         parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
-        incluir_indice: includeTOC
+        incluir_indice: isPro ? includeTOC : false,
+        formato: downloadFormat
       };
       const response = await api.post('/generar-final/', payload);
       window.location.href = `${api.defaults.baseURL}/descargar/${response.data.file_id}`;
@@ -412,12 +414,45 @@ export default function Editor() {
                   ))}
                 </div>
 
-                <div className="flex items-center gap-4 mb-8 p-5 bg-surface-container-low rounded-2xl border border-outline-variant/30">
-                  <input type="checkbox" id="toc-toggle" checked={includeTOC} onChange={(e) => setIncludeTOC(e.target.checked)}
-                    className="w-6 h-6 accent-primary-container cursor-pointer" />
-                  <label htmlFor="toc-toggle" className="text-sm font-bold text-on-surface cursor-pointer">
-                    Generar Tabla de Contenidos automáticamente
-                  </label>
+                <div className="flex flex-col gap-3 mb-8 p-5 bg-surface-container-low rounded-2xl border border-outline-variant/30">
+                  <div className="flex items-center gap-4">
+                    <input type="checkbox" id="toc-toggle" checked={includeTOC} onChange={(e) => setIncludeTOC(e.target.checked)}
+                      className="w-6 h-6 accent-primary-container cursor-pointer" disabled={!isPro} />
+                    <label htmlFor="toc-toggle" className="text-sm font-bold text-on-surface cursor-pointer">
+                      Generar Tabla de Contenidos automáticamente
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 dark:border-outline-variant/30 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="download-format"
+                        value="docx"
+                        checked={downloadFormat === 'docx'}
+                        onChange={() => setDownloadFormat('docx')}
+                        className="accent-primary-container"
+                      />
+                      <span className="text-sm font-bold">DOCX</span>
+                    </label>
+                    <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 dark:border-outline-variant/30 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="download-format"
+                        value="pdf"
+                        checked={downloadFormat === 'pdf'}
+                        onChange={() => setDownloadFormat('pdf')}
+                        className="accent-primary-container"
+                      />
+                      <span className="text-sm font-bold">PDF</span>
+                    </label>
+                  </div>
+
+                  {!isPro && (
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Esta función usa el índice real con números de página y está disponible solo en DocAI Pro.
+                    </span>
+                  )}
                 </div>
 
                 <button onClick={handleConfirmarYDescargar} disabled={loading}
