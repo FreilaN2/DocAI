@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================
+   VARIABLES CSS Y TEMAS
+   ============================================= */
 :root {
   --primary-container: #ff6b00;
   --on-primary: #ffffff;
@@ -38,22 +41,540 @@
   --border: #3a2e29;
 }
 
+/* =============================================
+   ESTILOS BASE
+   ============================================= */
 body {
   @apply bg-background text-on-background font-sans;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom classes for the editor cards */
+/* =============================================
+   UTILIDADES GLASS
+   ============================================= */
 .glass {
   @apply bg-white/70 backdrop-blur-lg border border-slate-200/50 shadow-sm;
 }
 
+.glass-dark {
+  @apply bg-[#1a1512]/70 backdrop-blur-lg border border-outline-variant/30 shadow-sm;
+}
+
+/* =============================================
+   SCROLLBAR PERSONALIZADA
+   ============================================= */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 10px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #e2e8f0;
   border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* Dark mode scrollbar */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #4a3d36;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b5a51;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}
+
+.dark .custom-scrollbar {
+  scrollbar-color: #4a3d36 transparent;
+}
+
+/* =============================================
+   ANIMACIONES - FADE IN
+   ============================================= */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* =============================================
+   ANIMACIONES - FADE IN UP
+   ============================================= */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+/* =============================================
+   ANIMACIONES - SCALE IN
+   ============================================= */
+@keyframes scaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+/* =============================================
+   ANIMACIONES - SPIN (Carga)
+   ============================================= */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* =============================================
+   ANIMACIONES - SPIN SLOW (Engranaje)
+   ============================================= */
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+
+/* =============================================
+   ANIMACIONES - PULSE (Indicador)
+   ============================================= */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* =============================================
+   ANIMACIONES - BOUNCE (Rebote)
+   ============================================= */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+/* =============================================
+   ANIMACIONES - SHIMMER (Brillo en barra)
+   ============================================= */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* =============================================
+   ANIMACIONES - SLIDE DOWN (Menú móvil)
+   ============================================= */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.3s ease-in-out forwards;
+  overflow: hidden;
+}
+
+/* =============================================
+   ANIMACIONES - SLIDE UP
+   ============================================= */
+@keyframes slideUp {
+  from {
+    opacity: 1;
+    max-height: 500px;
+  }
+  to {
+    opacity: 0;
+    max-height: 0;
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-in-out forwards;
+  overflow: hidden;
+}
+
+/* =============================================
+   TRANSICIONES GLOBALES
+   ============================================= */
+.transition-transform {
+  transition: transform 0.2s ease-in-out;
+}
+
+.transition-opacity {
+  transition: opacity 0.2s ease-in-out;
+}
+
+.transition-colors {
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+
+.transition-all {
+  transition: all 0.3s ease-in-out;
+}
+
+/* =============================================
+   EFECTOS HOVER Y ACTIVE
+   ============================================= */
+.hover-lift {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.active-press {
+  transition: transform 0.1s ease-in-out;
+}
+
+.active-press:active {
+  transform: scale(0.97);
+}
+
+/* =============================================
+   MEJORAS DE RENDIMIENTO GPU
+   ============================================= */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform;
+}
+
+/* =============================================
+   ESTILOS PARA INPUTS Y FORMULARIOS
+   ============================================= */
+.input-focus-ring {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-focus-ring:focus {
+  outline: none;
+  border-color: var(--primary-container);
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.1);
+}
+
+/* =============================================
+   ESTILOS PARA TARJETAS (CARDS)
+   ============================================= */
+.card {
+  @apply bg-white dark:bg-[#1a1512] rounded-2xl border border-slate-200 dark:border-outline-variant/30 shadow-sm;
+}
+
+.card-hover {
+  @apply card transition-all duration-300;
+}
+
+.card-hover:hover {
+  @apply shadow-md;
+  transform: translateY(-2px);
+}
+
+/* =============================================
+   ESTILOS PARA BOTONES
+   ============================================= */
+.btn {
+  @apply font-bold py-3 px-6 rounded-xl transition-all duration-200 inline-flex items-center justify-center gap-2;
+}
+
+.btn-primary {
+  @apply btn bg-primary-container text-white hover:opacity-90 active:scale-95;
+}
+
+.btn-secondary {
+  @apply btn bg-surface-variant dark:bg-surface-container-high text-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-low active:scale-95;
+}
+
+.btn-outline {
+  @apply btn border border-outline dark:border-outline-variant/30 text-on-surface hover:bg-surface-container-low dark:hover:bg-surface-container-high active:scale-95;
+}
+
+/* =============================================
+   ESTILOS PARA BADGES
+   ============================================= */
+.badge {
+  @apply text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest;
+}
+
+.badge-pro {
+  @apply badge bg-primary-container text-white;
+}
+
+.badge-free {
+  @apply badge bg-slate-200 dark:bg-surface-container-high text-slate-600 dark:text-on-surface-variant;
+}
+
+/* =============================================
+   ESTILOS PARA TOOLTIP
+   ============================================= */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: #1a1512;
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+}
+
+/* =============================================
+   UTILIDADES DE ACCESIBILIDAD
+   ============================================= */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.focus-visible-ring:focus-visible {
+  outline: 2px solid var(--primary-container);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* =============================================
+   REDUCCIÓN DE MOVIMIENTO (Accesibilidad)
+   ============================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-fadeIn,
+  .animate-fadeInUp,
+  .animate-scaleIn,
+  .animate-spin,
+  .animate-spin-slow,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-shimmer,
+  .animate-slideDown,
+  .animate-slideUp {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
+
+/* =============================================
+   OVERLAY Y BACKDROP
+   ============================================= */
+.overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm z-40;
+}
+
+.backdrop {
+  @apply fixed inset-0 bg-slate-900/40 backdrop-blur-sm;
+}
+
+/* =============================================
+   SKELETON LOADING
+   ============================================= */
+@keyframes skeleton {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.dark .skeleton {
+  background: linear-gradient(90deg, #2d2420 25%, #3a2e29 50%, #2d2420 75%);
+  background-size: 200% 100%;
+}
+
+/* =============================================
+   UTILIDADES DE TEXTO
+   ============================================= */
+.text-gradient {
+  background: linear-gradient(135deg, #ff6b00, #ff8c33);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.truncate-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* =============================================
+   ESPACIADO Y LAYOUT
+   ============================================= */
+.section-spacing {
+  @apply py-16 md:py-24;
+}
+
+.container-narrow {
+  @apply max-w-4xl mx-auto px-4;
+}
+
+.container-wide {
+  @apply max-w-7xl mx-auto px-4;
+}
+
+/* =============================================
+   MEJORAS PARA MOBILE
+   ============================================= */
+@media (max-width: 768px) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* =============================================
+   SOPORTE PARA SAFARI
+   ============================================= */
+@supports (-webkit-touch-callout: none) {
+  .safari-fix {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+}
+
+/* =============================================
+   CLASES PARA DEBUG (Desarrollo)
+   ============================================= */
+.debug {
+  border: 2px solid red;
+}
+
+.debug * {
+  border: 1px solid rgba(255, 0, 0, 0.2);
 }
