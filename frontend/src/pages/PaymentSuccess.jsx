@@ -18,12 +18,18 @@ export default function PaymentSuccess() {
     if (hasCaptured.current) return;
     hasCaptured.current = true;
 
+    if (searchParams.get('binance') === 'true') {
+      setStatus('success');
+      setMessage(t('payment.binance_success'));
+      return;
+    }
+
     // PayPal usa 'token' como el identificador de la orden aprobada
     const orderId = searchParams.get('token'); 
     
     if (!orderId) {
       setStatus('error');
-      setMessage('No se encontró el ID de la orden.');
+      setMessage(t('payment.order_id_not_found'));
       return;
     }
 

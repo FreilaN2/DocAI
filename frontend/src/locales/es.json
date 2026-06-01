@@ -48,7 +48,9 @@
     "faq2_q": "¿Puedo cancelar en cualquier momento?",
     "faq2_a": "Sí, tu suscripción no tiene contratos a largo plazo. Cancela cuando quieras desde tu perfil.",
     "faq3_q": "¿Qué formatos de archivo soportan?",
-    "faq3_a": "Actualmente, para garantizar la máxima precisión y respeto del diseño, solo soportamos documentos en formato .docx (Microsoft Word)."
+    "faq3_a": "Actualmente, para garantizar la máxima precisión y respeto del diseño, solo soportamos documentos en formato .docx (Microsoft Word).",
+    "faq4_q": "¿Qué métodos de pago aceptan?",
+    "faq4_a": "Actualmente aceptamos pagos mediante PayPal (tarjetas de crédito/débito) y Binance Pay (transferencias cripto en USDT)."
   },
   "editor": {
     "back": "Volver",
@@ -117,7 +119,9 @@
     "success_desc": "¡Pago confirmado!",
     "go_pro": "Ir al Editor Pro →",
     "error_title": "Algo salió mal",
-    "back_upgrade": "Volver a Upgrade"
+    "back_upgrade": "Volver a Upgrade",
+    "binance_success": "¡Pago verificado con Binance! Su cuenta ha sido actualizada.",
+    "order_id_not_found": "No se encontró el ID de la orden."
   },
   "profile": {
     "title": "Mi Perfil",
@@ -148,11 +152,22 @@
     "feat_watermark": "Sin marca de agua",
     "btn_subscribe": "Suscribirme",
     "secure_paypal": "Pago seguro vía PayPal · Cancela cuando quieras",
+    "secure_binance": "También aceptamos Binance Pay",
     "token_alert_1": "Los tokens extra ",
     "token_alert_strong": "no caducan",
     "token_alert_2": " y se acumulan. Úsalos cuando los necesites.",
     "most_popular": "🔥 MÁS POPULAR",
-    "btn_buy": "Comprar"
+    "btn_buy": "Comprar",
+    "pay_sub": "Pagar Suscripción",
+    "pay_pack": "Pagar Paquete",
+    "select_method": "Selecciona tu método de pago preferido para continuar por",
+    "pay_paypal": "Pagar con PayPal o Tarjeta",
+    "or_crypto": "O USA CRIPTOMONEDAS",
+    "pay_binance": "Pagar con Binance Pay",
+    "binance_instr_1": "Abre tu app de Binance, escanea el código y envía exactamente",
+    "order_id_label": "Order ID / ID de Transacción",
+    "verify_payment": "Verificar Pago",
+    "go_back": "Volver atrás"
   },
   "support": {
     "title": "Centro de Soporte",

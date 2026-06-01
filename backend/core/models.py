@@ -130,3 +130,18 @@ class TokenPack(Base):
     price = Column(DECIMAL(10, 2), nullable=False)
     tokens = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True)
+
+# ─────────────────────────────────────────────
+# TRANSACCIONES DE BINANCE PAY
+# ─────────────────────────────────────────────
+class BinanceTransaction(Base):
+    __tablename__ = "binance_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    order_id = Column(String(100), unique=True, nullable=False, index=True)
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    currency = Column(String(10), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+
+    user = relationship("User")

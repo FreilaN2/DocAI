@@ -123,9 +123,9 @@ def init_db():
 
         if db.query(TokenPack).count() == 0:
             db.add_all([
-                TokenPack(name="Starter Pack",  price=3.00,  tokens=200),
-                TokenPack(name="Standard Pack", price=6.00,  tokens=500),
-                TokenPack(name="Power Pack",    price=10.00, tokens=1000),
+                TokenPack(name="Starter Pack",  price=2.00,  tokens=100),
+                TokenPack(name="Standard Pack", price=5.00,  tokens=300),
+                TokenPack(name="Power Pack",    price=7.00, tokens=500),
             ])
             db.commit()
             logger.info("✅ Paquetes de tokens insertados.")

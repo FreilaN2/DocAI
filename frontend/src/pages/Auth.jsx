@@ -356,16 +356,16 @@ export default function Auth() {
       {/* Left Content Section */}
       <div className="relative hidden lg:flex flex-col justify-between bg-surface p-12 text-on-surface flex-1 overflow-hidden h-screen pt-24 sticky top-0">
         
-        <div className="relative z-20 flex flex-col h-full justify-center">
+        <div className="relative z-20 flex flex-col h-full justify-start pt-8 xl:pt-16">
           
-          <div className="text-left mb-8 max-w-sm mx-auto w-full">
-            <h2 className="text-4xl font-bold mb-4 tracking-tight">{t('auth.left_title')}</h2>
+          <div className="text-left mb-auto max-w-sm mx-auto w-full">
+            <h2 className="text-5xl font-black mb-4 tracking-tight">{t('auth.left_title')}</h2>
             <p className="text-on-surface-variant text-lg">{t('auth.left_desc')}</p>
           </div>
 
-          <div className="relative flex items-end justify-center h-[500px] mt-10">
+          <div className="relative flex items-end justify-center h-[500px]">
             {/* Cartoon Characters */}
-            <div className="relative" style={{ width: '550px', height: '400px' }}>
+            <div className="relative transform origin-bottom scale-[1.15] xl:scale-[1.35] transition-transform duration-500" style={{ width: '550px', height: '400px' }}>
               {/* Purple tall rectangle character */}
               <div 
                 ref={purpleRef}
@@ -490,9 +490,8 @@ export default function Auth() {
       </div>
 
       {/* Right Login Section */}
-      <div className="flex-1 flex flex-col items-center px-6 md:px-12 lg:px-24 pt-32 pb-24 bg-surface h-screen overflow-y-auto custom-scrollbar">
-        <div className="flex-grow shrink-0 min-h-[1rem]"></div>
-        <div className="w-full max-w-[440px] shrink-0">
+      <div className="flex-1 flex flex-col items-center px-6 md:px-12 lg:px-24 justify-center bg-surface h-screen overflow-y-auto custom-scrollbar pt-20 pb-12">
+        <div className="w-full max-w-[520px] shrink-0">
 
           {/* Header */}
           <div className="mb-10 text-center lg:text-left">
@@ -724,7 +723,6 @@ export default function Auth() {
             </div>
           </div>
         </div>
-        <div className="flex-grow shrink-0 min-h-[2rem]"></div>
       </div>
     </div>
   );

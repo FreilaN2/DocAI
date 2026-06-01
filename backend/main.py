@@ -644,10 +644,10 @@ async def descargar_archivo(file_id: str):
 
 # Precios de suscripción por duración
 SUBSCRIPTION_PRICES = {
-    1:  12.00,
-    3:  33.00,   # $11/mes
-    6:  60.00,   # $10/mes
-    12: 108.00,  # $9/mes
+    1:  5.00,
+    3:  14.00,
+    6:  25.00,
+    12: 45.00,
 }
 TOKENS_PER_MONTH_PRO = 500  # 500 DocAI tokens = ~5 docs/mes por usuario Pro
 
@@ -737,6 +737,84 @@ async def confirmar_suscripcion(
         "status": "success",
         "message": f"Suscripción Pro activada por {data.months} mes(es).",
         "tokens_assigned": TOKENS_PER_MONTH_PRO,
+    }
+
+
+class VerifyBinanceRequest(BaseModel):
+    order_id: str
+    type: str # 'subscription' or 'pack'
+    item_id: int # months or pack_id
+
+@app.post("/pago/verify-binance")
+async def verify_binance(
+    data: VerifyBinanceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Verifica un pago de Binance y activa la suscripción o añade el pack."""
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+    from core.models import Subscription, BinanceTransaction, TokenPack
+    from core.binance_pay import verify_binance_payment
+
+    if data.type == 'subscription':
+        if data.item_id not in SUBSCRIPTION_PRICES:
+            raise HTTPException(status_code=400, detail="Duración no válida.")
+        expected_amount = float(SUBSCRIPTION_PRICES[data.item_id])
+    elif data.type == 'pack':
+        pack = db.query(TokenPack).filter(TokenPack.id == data.item_id).first()
+        if not pack:
+            raise HTTPException(status_code=404, detail="Paquete no encontrado.")
+        expected_amount = float(pack.price)
+    else:
+        raise HTTPException(status_code=400, detail="Tipo de pago no válido.")
+
+    # 1. Verificar si el Order ID ya fue procesado
+    existing_tx = db.query(BinanceTransaction).filter(BinanceTransaction.order_id == data.order_id).first()
+    if existing_tx:
+        raise HTTPException(status_code=400, detail="Este comprobante de Binance ya fue procesado anteriormente.")
+
+    # 2. Consultar a Binance API
+    is_valid, msg = verify_binance_payment(data.order_id, expected_amount)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=msg)
+
+    # 3. Registrar el pago de Binance para evitar reusos
+    new_binance_tx = BinanceTransaction(
+        user_id=current_user.id,
+        order_id=data.order_id,
+        amount=expected_amount,
+        currency="USDT"
+    )
+    db.add(new_binance_tx)
+
+    # 4. Activar el producto
+    if data.type == 'subscription':
+        pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+        current_user.plan_id = pro_plan.id
+
+        now = datetime.utcnow()
+        sub = Subscription(
+            user_id=current_user.id,
+            paypal_order_id=f"binance_{data.order_id}",
+            months_paid=data.item_id,
+            tokens_per_month=TOKENS_PER_MONTH_PRO,
+            started_at=now,
+            ends_at=now + relativedelta(months=data.item_id),
+            status="active",
+        )
+        db.add(sub)
+        assign_monthly_tokens(current_user.id, TOKENS_PER_MONTH_PRO, db)
+        message = f"Pago verificado con Binance. ¡Suscripción Pro activada por {data.item_id} mes(es)!"
+    else:
+        add_extra_tokens(current_user.id, pack.tokens, db)
+        message = f"Pago verificado con Binance. ¡+{pack.tokens} tokens añadidos!"
+
+    db.commit()
+    logger.info(f"🎉 Compra activada vía Binance Pay: user={current_user.id}, type={data.type}, item={data.item_id}")
+    return {
+        "status": "success",
+        "message": message
     }
 
 

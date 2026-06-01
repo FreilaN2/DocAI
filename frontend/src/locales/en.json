@@ -48,7 +48,9 @@
     "faq2_q": "Can I cancel at any time?",
     "faq2_a": "Yes, your subscription has no long-term contracts. Cancel whenever you want from your profile.",
     "faq3_q": "What file formats do you support?",
-    "faq3_a": "Currently, to guarantee maximum precision and design respect, we only support documents in .docx format (Microsoft Word)."
+    "faq3_a": "Currently, to guarantee maximum precision and design respect, we only support documents in .docx format (Microsoft Word).",
+    "faq4_q": "What payment methods do you accept?",
+    "faq4_a": "We currently accept payments via PayPal (credit/debit cards) and Binance Pay (USDT crypto transfers)."
   },
   "editor": {
     "back": "Back",
@@ -116,7 +118,9 @@
     "success_desc": "Payment confirmed!",
     "go_pro": "Go to Pro Editor →",
     "error_title": "Something went wrong",
-    "back_upgrade": "Back to Upgrade"
+    "back_upgrade": "Back to Upgrade",
+    "binance_success": "Payment verified with Binance! Your account has been updated.",
+    "order_id_not_found": "Order ID not found."
   },
   "profile": {
     "title": "My Profile",
@@ -147,11 +151,22 @@
     "feat_watermark": "No watermark",
     "btn_subscribe": "Subscribe",
     "secure_paypal": "Secure payment via PayPal · Cancel anytime",
+    "secure_binance": "We also accept Binance Pay",
     "token_alert_1": "Extra tokens ",
     "token_alert_strong": "do not expire",
     "token_alert_2": " and stack. Use them whenever you need.",
     "most_popular": "🔥 MOST POPULAR",
-    "btn_buy": "Buy"
+    "btn_buy": "Buy",
+    "pay_sub": "Pay Subscription",
+    "pay_pack": "Pay Pack",
+    "select_method": "Select your preferred payment method to continue for",
+    "pay_paypal": "Pay with PayPal or Card",
+    "or_crypto": "OR USE CRYPTO",
+    "pay_binance": "Pay with Binance Pay",
+    "binance_instr_1": "Open your Binance app, scan the code and send exactly",
+    "order_id_label": "Order ID / Transaction ID",
+    "verify_payment": "Verify Payment",
+    "go_back": "Go back"
   },
   "support": {
     "title": "Support Center",

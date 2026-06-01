@@ -259,7 +259,7 @@ export default function Landing() {
           </motion.div>
           
           <div className="flex flex-col gap-4">
-            {[1, 2, 3].map((num) => (
+            {[1, 2, 3, 4].map((num) => (
               <motion.div 
                 key={num}
                 variants={itemVariants}

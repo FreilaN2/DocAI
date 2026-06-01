@@ -26,6 +26,19 @@ export default function Upgrade() {
   const [selectedTab, setSelectedTab] = useState('subscription'); // 'subscription' | 'packs'
   const [userInfo, setUserInfo] = useState(null);
 
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, type: null, item: null });
+  const [binanceFlow, setBinanceFlow] = useState('select'); // 'select' | 'qr'
+  const [binanceOrderId, setBinanceOrderId] = useState('');
+  const [binanceLoading, setBinanceLoading] = useState(false);
+
+  const openPaymentModal = (type, item) => {
+    if (!getToken()) { navigate('/login'); return; }
+    setPaymentModal({ isOpen: true, type, item });
+    setBinanceFlow('select');
+    setBinanceOrderId('');
+  };
+  const closePaymentModal = () => setPaymentModal({ isOpen: false, type: null, item: null });
+
   useEffect(() => {
     const stored = localStorage.getItem('user');
     if (stored) {
@@ -53,7 +66,6 @@ export default function Upgrade() {
   };
 
   const handleBuyPack = async (packId) => {
-    if (!getToken()) { navigate('/login'); return; }
     setLoading(`pack-${packId}`);
     try {
       const resp = await api.post('/pago/pack-tokens', { pack_id: packId });
@@ -64,6 +76,43 @@ export default function Upgrade() {
       toast.error(err.response?.data?.detail || 'Error al crear el pago');
     } finally {
       setLoading(null);
+    }
+  };
+
+  const handleVerifyBinance = async () => {
+    if (!binanceOrderId.trim()) {
+      toast.error('Ingresa el ID de Orden de Binance Pay');
+      return;
+    }
+    setBinanceLoading(true);
+    try {
+      const itemId = paymentModal.type === 'subscription' ? paymentModal.item.months : paymentModal.item.id;
+      const resp = await api.post('/pago/verify-binance', {
+        order_id: binanceOrderId.trim(),
+        type: paymentModal.type,
+        item_id: itemId
+      });
+      // Actualizar plan localmente para que se refleje de inmediato
+      if (paymentModal.type === 'subscription') {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          try {
+            const userObj = JSON.parse(userStr);
+            userObj.plan = 'pro';
+            localStorage.setItem('user', JSON.stringify(userObj));
+            window.dispatchEvent(new Event('storage')); // Actualizar Navbar
+          } catch (e) {}
+        }
+      }
+
+      toast.success(resp.data.message || 'Pago verificado exitosamente');
+      closePaymentModal();
+      navigate('/pago/exitoso?binance=true');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || 'No se pudo verificar el pago en Binance');
+    } finally {
+      setBinanceLoading(false);
     }
   };
 
@@ -163,7 +212,7 @@ export default function Upgrade() {
 
                   <motion.button
                     whileTap={{ scale: 0.96 }}
-                    onClick={() => handleSubscribe(plan.months)}
+                    onClick={() => openPaymentModal('subscription', plan)}
                     disabled={loading === `sub-${plan.months}`}
                     className={`w-full py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2
                       ${plan.popular
@@ -181,11 +230,15 @@ export default function Upgrade() {
               ))}
             </div>
 
-            {/* PayPal badge */}
-            <div className="flex justify-center">
+            {/* Badges */}
+            <div className="flex flex-col items-center mt-4 space-y-2">
               <div className="inline-flex items-center gap-2 text-xs text-slate-400 font-bold">
                 <span className="material-symbols-outlined text-sm">lock</span>
                 {t('upgrade.secure_paypal')}
+              </div>
+              <div className="inline-flex items-center gap-2 text-xs text-slate-400 font-bold">
+                <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" className="w-3.5 h-3.5 grayscale opacity-70" alt="BNB" />
+                {t('upgrade.secure_binance')}
               </div>
             </div>
           </motion.div>
@@ -221,7 +274,7 @@ export default function Upgrade() {
 
                   <motion.button
                     whileTap={{ scale: 0.96 }}
-                    onClick={() => handleBuyPack(pack.id)}
+                    onClick={() => openPaymentModal('pack', pack)}
                     disabled={loading === `pack-${pack.id}`}
                     className={`w-full py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2
                       ${pack.popular
@@ -241,6 +294,82 @@ export default function Upgrade() {
           </motion.div>
         )}
       </main>
+
+      {/* PAYMENT MODAL */}
+      {paymentModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-surface w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-5 border-b border-outline/10 dark:border-outline-variant/20">
+              <h3 className="text-xl font-bold text-on-surface">{paymentModal.type === 'subscription' ? t('upgrade.pay_sub') : t('upgrade.pay_pack')}</h3>
+              <button onClick={closePaymentModal} className="text-on-surface-variant hover:text-on-surface">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {binanceFlow === 'select' && (
+                <div className="space-y-4">
+                  <p className="text-on-surface-variant text-sm mb-4">{t('upgrade.select_method')} <strong>${paymentModal.item.price}</strong>.</p>
+                  
+                  <button onClick={() => {
+                    if (paymentModal.type === 'subscription') handleSubscribe(paymentModal.item.months);
+                    else handleBuyPack(paymentModal.item.id);
+                  }} className="w-full py-4 rounded-xl font-bold bg-[#003087] text-white flex items-center justify-center gap-3 hover:bg-[#002266] transition-colors">
+                    <span className="material-symbols-outlined">payments</span>
+                    {t('upgrade.pay_paypal')}
+                  </button>
+                  
+                  <div className="relative py-3 flex items-center">
+                    <div className="flex-grow border-t border-outline/20"></div>
+                    <span className="flex-shrink-0 mx-4 text-on-surface-variant text-xs uppercase tracking-widest font-bold">{t('upgrade.or_crypto')}</span>
+                    <div className="flex-grow border-t border-outline/20"></div>
+                  </div>
+
+                  <button onClick={() => setBinanceFlow('qr')} className="w-full py-4 rounded-xl font-bold bg-[#FCD535] text-[#1E2329] flex items-center justify-center gap-3 hover:bg-[#F3BA2F] transition-colors">
+                    <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" className="w-5 h-5" alt="BNB" />
+                    {t('upgrade.pay_binance')}
+                  </button>
+                </div>
+              )}
+
+              {binanceFlow === 'qr' && (
+                <div className="flex flex-col items-center">
+                  <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-500 text-xs font-bold px-3 py-2 rounded-lg mb-4 text-center">
+                    {t('upgrade.binance_instr_1')} <strong>{paymentModal.item.price} USDT</strong>.
+                  </div>
+                  
+                  <img src="/binance.png" alt="Binance QR" className="w-48 h-48 rounded-xl shadow-md border-4 border-white mb-6" />
+                  
+                  <div className="w-full">
+                    <label className="block text-sm font-bold text-on-surface mb-2">{t('upgrade.order_id_label')}</label>
+                    <input 
+                      type="text" 
+                      value={binanceOrderId}
+                      onChange={e => setBinanceOrderId(e.target.value)}
+                      placeholder="Ej. 1234567890"
+                      className="w-full px-4 py-3 rounded-xl border border-outline/30 bg-surface focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                    />
+                    
+                    <button 
+                      onClick={handleVerifyBinance}
+                      disabled={binanceLoading}
+                      className="w-full py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary-container hover:text-on-primary-container transition-all flex justify-center items-center gap-2"
+                    >
+                      {binanceLoading ? (
+                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
+                      ) : t('upgrade.verify_payment')}
+                    </button>
+                    <button onClick={() => setBinanceFlow('select')} className="w-full py-3 mt-2 text-sm font-bold text-on-surface-variant hover:text-on-surface">
+                      {t('upgrade.go_back')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
     </div>
   );
 }
