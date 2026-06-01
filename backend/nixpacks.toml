@@ -1,2 +1,2 @@
 [phases.setup]
-nixPkgs = ["libreoffice-headless", "python312", "gcc"]
+nixPkgs = ["libreoffice", "python312", "gcc"]
