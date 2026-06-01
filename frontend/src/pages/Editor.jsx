@@ -414,16 +414,26 @@ export default function Editor() {
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-3 mb-8 p-5 bg-surface-container-low rounded-2xl border border-outline-variant/30">
-                  <div className="flex items-center gap-4">
+                <div className={`flex flex-col gap-3 mb-8 p-5 rounded-2xl border transition-all ${
+                  isPro
+                    ? 'bg-white/50 dark:bg-[#1a1512]/50 border-slate-200 dark:border-outline-variant/30'
+                    : 'bg-white/30 dark:bg-[#1a1512]/50 border-slate-200/60 dark:border-outline-variant/20'
+                }`}>
+                  <div className={`flex items-center gap-4 ${!isPro ? 'opacity-50' : ''}`}>
                     <input type="checkbox" id="toc-toggle" checked={includeTOC} onChange={(e) => setIncludeTOC(e.target.checked)}
-                      className="w-6 h-6 accent-primary-container cursor-pointer" disabled={!isPro} />
-                    <label htmlFor="toc-toggle" className="text-sm font-bold text-on-surface cursor-pointer">
-                      Generar Tabla de Contenidos automáticamente
+                      className="w-6 h-6 accent-primary-container" disabled={!isPro}
+                      style={{ cursor: isPro ? 'pointer' : 'not-allowed' }} />
+                    <label htmlFor="toc-toggle" className={`text-sm font-bold ${isPro ? 'text-on-surface cursor-pointer' : 'text-on-surface-variant cursor-not-allowed'}`}>
+                      {t('editor.toc_label')}
                     </label>
+                    {!isPro && (
+                      <span className="ml-auto text-[9px] font-black bg-primary-container/15 text-primary-container border border-primary-container/20 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[10px]">lock</span> Pro
+                      </span>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className={`grid grid-cols-2 gap-3 pt-2 ${!isPro ? 'opacity-60' : ''}`}>
                     <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 dark:border-outline-variant/30 cursor-pointer">
                       <input
                         type="radio"
@@ -435,23 +445,35 @@ export default function Editor() {
                       />
                       <span className="text-sm font-bold">DOCX</span>
                     </label>
-                    <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 dark:border-outline-variant/30 cursor-pointer">
+                    <label className={`flex items-center gap-2 p-3 rounded-2xl border transition-colors ${
+                      isPro
+                        ? 'border-slate-200 dark:border-outline-variant/30 cursor-pointer'
+                        : 'border-slate-200 dark:border-outline-variant/20 cursor-not-allowed'
+                    }`}>
                       <input
                         type="radio"
                         name="download-format"
                         value="pdf"
                         checked={downloadFormat === 'pdf'}
-                        onChange={() => setDownloadFormat('pdf')}
+                        onChange={() => isPro && setDownloadFormat('pdf')}
+                        disabled={!isPro}
                         className="accent-primary-container"
                       />
                       <span className="text-sm font-bold">PDF</span>
+                      {!isPro && (
+                        <span className="ml-auto text-[9px] font-black bg-primary-container/15 text-primary-container border border-primary-container/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Pro</span>
+                      )}
                     </label>
                   </div>
 
                   {!isPro && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      Esta función usa el índice real con números de página y está disponible solo en DocAI Pro.
-                    </span>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="material-symbols-outlined text-sm text-primary-container">workspace_premium</span>
+                      <span className="text-xs text-on-surface-variant">
+                        {t('editor.pro_features_hint')}{' '}
+                        <a href="/upgrade" className="text-primary-container font-bold hover:underline">{t('editor.upgrade_link')}</a>.
+                      </span>
+                    </div>
                   )}
                 </div>
 

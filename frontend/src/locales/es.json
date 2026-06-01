@@ -73,7 +73,10 @@
     "apa_6th": "Normas APA 6ta Edición",
     "apa_7th": "Normas APA 7ma Edición",
     "drag_drop": "O arrastra tu archivo aquí",
-    "drop_here": "¡Suéltalo aquí!"
+    "drop_here": "¡Suéltalo aquí!",
+    "toc_label": "Generar Tabla de Contenidos automáticamente",
+    "pro_features_hint": "La Tabla de Contenidos y la descarga en PDF son exclusivas de",
+    "upgrade_link": "DocIA Pro"
   },
   "navbar": {
     "home": "Inicio",

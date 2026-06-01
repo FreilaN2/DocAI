@@ -73,7 +73,10 @@
     "apa_6th": "APA 6th Edition",
     "apa_7th": "APA 7th Edition",
     "drag_drop": "Or drag your file here",
-    "drop_here": "Drop it here!"
+    "drop_here": "Drop it here!",
+    "toc_label": "Automatically generate Table of Contents",
+    "pro_features_hint": "Table of Contents and PDF download are exclusive to",
+    "upgrade_link": "DocIA Pro"
   },
   "navbar": {
     "home": "Home",

@@ -792,6 +792,12 @@ async def generar_final(datos: DatosFinales):
         )
 
     if datos.formato.lower() == "pdf":
+        # Seguridad: solo usuarios Pro pueden descargar en PDF
+        if datos.plan != "pro":
+            raise HTTPException(
+                status_code=403,
+                detail="La descarga en formato PDF está disponible exclusivamente para usuarios Pro.",
+            )
         output_pdf_path = os.path.abspath(os.path.join(PROCESSED_DIR, output_filename + ".pdf"))
         if os.path.exists(output_pdf_path):
             try:
@@ -799,55 +805,82 @@ async def generar_final(datos: DatosFinales):
             except Exception:
                 pass
 
-        try:
-            import win32com.client
+        def _get_soffice_path() -> str | None:
+            """
+            Detecta automáticamente la ruta del ejecutable de LibreOffice
+            en Windows o Linux (Railway/servidor).
+            """
+            import shutil
+            # 1. Buscar en el PATH del sistema (funciona en Linux/Railway)
+            path_in_env = shutil.which("soffice")
+            if path_in_env:
+                return path_in_env
+            # 2. Rutas comunes en Windows
+            windows_paths = [
+                r"C:\Program Files\LibreOffice\program\soffice.exe",
+                r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+            ]
+            for p in windows_paths:
+                if os.path.exists(p):
+                    return p
+            return None
 
-            word = win32com.client.Dispatch("Word.Application")
-            word.Visible = False
-            word.DisplayAlerts = 0
-            doc_word = None
-            try:
-                doc_word = word.Documents.Open(
-                    str(output_docx_path),
-                    ReadOnly=True,
-                    AddToRecentFiles=False,
-                    Visible=False,
-                )
-                try:
-                    doc_word.ExportAsFixedFormat(
-                        OutputFileName=str(output_pdf_path),
-                        ExportFormat=17,
-                    )
-                except Exception as export_error:
-                    logger.warning(
-                        f"⚠️ ExportAsFixedFormat falló, intentando SaveAs2: {export_error}"
-                    )
-                    doc_word.SaveAs2(str(output_pdf_path), FileFormat=17)
-            except Exception as open_error:
-                logger.error(f"❌ Error al abrir o exportar DOCX con Word COM: {open_error}")
-                raise
-            finally:
-                if doc_word is not None:
-                    try:
-                        doc_word.Close(False)
-                    except Exception as close_error:
-                        logger.warning(f"⚠️ Error al cerrar el documento Word: {close_error}")
-                try:
-                    word.Quit()
-                except Exception as quit_error:
-                    logger.warning(f"⚠️ Error al cerrar Word: {quit_error}")
+        soffice = _get_soffice_path()
+
+        if not soffice:
+            raise HTTPException(
+                status_code=500,
+                detail="LibreOffice no está instalado en el servidor. Contacta al administrador.",
+            )
+
+        try:
+            import subprocess, tempfile, shutil
+
+            # LibreOffice convierte al directorio que le indiques con --outdir
+            # Usa un directorio temporal para evitar colisiones de nombres
+            tmp_dir = tempfile.mkdtemp()
+
+            result = subprocess.run(
+                [
+                    soffice,
+                    "--headless",
+                    "--convert-to", "pdf",
+                    "--outdir", tmp_dir,
+                    os.path.abspath(output_docx_path),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+
+            if result.returncode != 0:
+                logger.error(f"❌ LibreOffice error: {result.stderr}")
+                raise RuntimeError(f"LibreOffice falló: {result.stderr}")
+
+            # LibreOffice guarda con el mismo nombre pero extensión .pdf
+            base_name_no_ext = os.path.splitext(os.path.basename(output_docx_path))[0]
+            generated_pdf = os.path.join(tmp_dir, base_name_no_ext + ".pdf")
+
+            if not os.path.exists(generated_pdf):
+                raise RuntimeError("LibreOffice no generó el archivo PDF esperado.")
+
+            # Mover al directorio de procesados con el nombre correcto
+            shutil.move(generated_pdf, output_pdf_path)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
             output_path = output_pdf_path
-        except ImportError:
+            logger.info(f"✅ PDF generado con LibreOffice: {output_pdf_path}")
+
+        except subprocess.TimeoutExpired:
             raise HTTPException(
                 status_code=500,
-                detail="Conversión a PDF no disponible: instala pywin32 o docx2pdf.",
+                detail="La conversión a PDF tardó demasiado. Intenta de nuevo.",
             )
         except Exception as e:
-            logger.error(f"❌ Error al convertir DOCX a PDF con Word COM: {e}")
+            logger.error(f"❌ Error al convertir DOCX a PDF con LibreOffice: {e}")
             raise HTTPException(
                 status_code=500,
-                detail="No se pudo convertir a PDF. Verifica que Microsoft Word esté instalado, que el archivo no esté bloqueado y que el servidor tenga permisos para crear archivos.",
+                detail=f"No se pudo convertir a PDF. Error interno: {e}",
             )
 
     file_id = str(hash(output_path))
