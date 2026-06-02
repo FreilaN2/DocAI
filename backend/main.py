@@ -130,6 +130,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
+
+def get_optional_current_user(token: str = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)):
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email:
+            return db.query(User).filter(User.email == email).first()
+    except Exception:
+        pass
+    return None
+
 # Inicializar base de datos al arrancar y cargar fuentes para LibreOffice
 @app.on_event("startup")
 async def startup_event():
@@ -485,7 +499,7 @@ def _force_update_fields(doc):
 async def upload_documento(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_optional_current_user),
 ):
     """Guarda el .docx temporalmente y retorna un upload_id para el stream SSE."""
     background_tasks.add_task(limpiar_archivos_antiguos)
@@ -510,35 +524,30 @@ async def procesar_apa_stream(
     upload_id: str = Query(...),
     edicion: str = Query("7ma"),
     plan: str = Query("free"),
-    token: str = Query(...),
+    token: str = Query(None),
     db: Session = Depends(get_db),
 ):
     """
     Endpoint SSE: procesa el documento lote a lote y emite eventos de progreso.
     El JWT llega como query param porque EventSource no soporta headers custom.
     """
-    # Validar JWT
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        if not email:
-            raise HTTPException(status_code=401, detail="Token inválido")
-        current_user = db.query(User).filter(User.email == email).first()
-        if not current_user:
-            raise HTTPException(status_code=401, detail="Usuario no encontrado")
-    except HTTPException:
-        raise
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token JWT inválido o expirado")
-    except Exception as e:
-        logger.error(f"Error validando JWT en SSE: {e}")
-        raise HTTPException(status_code=401, detail="No autorizado")
+    current_user = None
+    if token and token != "null":
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            email = payload.get("sub")
+            if email:
+                current_user = db.query(User).filter(User.email == email).first()
+        except Exception as e:
+            logger.error(f"Error validando JWT en SSE: {e}")
 
     if upload_id not in upload_storage:
         raise HTTPException(status_code=404, detail="upload_id no encontrado. Sube el archivo primero.")
     input_path, filename = upload_storage[upload_id]
 
     if plan == "pro":
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Debes iniciar sesión para usar DocAI Pro.")
         balance = get_available_tokens(current_user.id, db)
         if balance["total"] <= 0:
             raise HTTPException(status_code=402, detail="Sin tokens disponibles.")
@@ -585,7 +594,7 @@ async def procesar_documento(
     edicion: str = Form("7ma"), 
     plan: str = Form("free"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_current_user)
 ):
     # Ejecutar limpieza en segundo plano
     background_tasks.add_task(limpiar_archivos_antiguos)
@@ -653,7 +662,10 @@ async def mis_tokens(
     return {"status": "success", **balance}
 
 @app.post("/generar-final/")
-async def generar_final(datos: DatosFinales):
+async def generar_final(
+    datos: DatosFinales,
+    current_user: User = Depends(get_current_user)
+):
     base_name, _ = os.path.splitext(datos.filename)
     safe_base_name = re.sub(r"[^A-Za-z0-9 _-]", "_", base_name).strip()
     unique_suffix = uuid.uuid4().hex

@@ -3,6 +3,7 @@ import api from '../api';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import PlanBadge from '../components/PlanBadge';
 import ParagraphCard from '../components/ParagraphCard';
@@ -61,6 +62,47 @@ export default function Editor() {
           }).catch(() => setTokenBalance(null));
         }
       } catch (e) { }
+    }
+
+    // Restaurar estado si el usuario viene de registrarse
+    const pendingResult = sessionStorage.getItem('docai_pending_result');
+    if (pendingResult) {
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          if (userData.plan === 'pro') {
+            sessionStorage.removeItem('docai_pending_result');
+            sessionStorage.removeItem('docai_pending_format');
+            sessionStorage.removeItem('docai_pending_toc');
+            sessionStorage.removeItem('docai_auto_download');
+            setTimeout(() => {
+              toast.error(t('editor.pro_progress_discarded'), { duration: 6000, icon: '⚠️' });
+            }, 500);
+            return;
+          }
+        } catch (e) { }
+      }
+
+      setResult(JSON.parse(pendingResult));
+      const savedFormat = sessionStorage.getItem('docai_pending_format');
+      if (savedFormat) setDownloadFormat(savedFormat);
+
+      const savedToc = sessionStorage.getItem('docai_pending_toc');
+      if (savedToc) setIncludeTOC(savedToc === 'true');
+
+      sessionStorage.removeItem('docai_pending_result');
+      sessionStorage.removeItem('docai_pending_format');
+      sessionStorage.removeItem('docai_pending_toc');
+
+      const autoDownload = sessionStorage.getItem('docai_auto_download');
+      if (autoDownload === 'true') {
+        sessionStorage.removeItem('docai_auto_download');
+        if (token && storedUser) {
+          setTimeout(() => {
+            toast.success(t('editor.login_success_download'), { icon: '🔓', duration: 5000 });
+          }, 1000);
+        }
+      }
     }
   }, [isPro, token, storedUser, navigate]);
 
@@ -138,7 +180,7 @@ export default function Editor() {
           setLoading(false);
           // Actualizar saldo tras análisis
           if (isPro && token) {
-            api.get('/tokens/balance').then(r => setTokenBalance(r.data)).catch(() => {});
+            api.get('/tokens/balance').then(r => setTokenBalance(r.data)).catch(() => { });
           }
         }
 
@@ -175,11 +217,27 @@ export default function Editor() {
   };
 
   const handleConfirmarYDescargar = async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      sessionStorage.setItem('docai_pending_result', JSON.stringify(result));
+      sessionStorage.setItem('docai_pending_filename', file ? file.name : '');
+      sessionStorage.setItem('docai_pending_format', downloadFormat);
+      sessionStorage.setItem('docai_pending_toc', includeTOC.toString());
+      sessionStorage.setItem('docai_auto_download', 'true');
+      toast(t('editor.login_to_download'), {
+        icon: '🔒',
+        duration: 5000,
+      });
+      navigate('/register');
+      return;
+    }
+
     setLoading(true);
     try {
+      const savedFilename = sessionStorage.getItem('docai_pending_filename');
       const payload = {
         edicion,
-        filename: file.name,
+        filename: file ? file.name : (savedFilename || 'documento_docai.docx'),
         plan,
         parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
         incluir_indice: isPro ? includeTOC : false,
@@ -360,8 +418,8 @@ export default function Editor() {
                         {modeloUsado.includes('scout')
                           ? '🚀 Modelo Avanzado (Scout 17B)'
                           : modeloUsado.includes('70b')
-                          ? '⚡ Modelo Estándar (70B)'
-                          : '🔧 Motor de reglas'}
+                            ? '⚡ Modelo Estándar (70B)'
+                            : '🔧 Motor de reglas'}
                       </span>
                       {tiempoRestante !== null && tiempoRestante > 0 && (
                         <span>~{tiempoRestante}s restantes</span>
@@ -414,11 +472,10 @@ export default function Editor() {
                   ))}
                 </div>
 
-                <div className={`flex flex-col gap-3 mb-8 p-5 rounded-2xl border transition-all ${
-                  isPro
+                <div className={`flex flex-col gap-3 mb-8 p-5 rounded-2xl border transition-all ${isPro
                     ? 'bg-white/50 dark:bg-[#1a1512]/50 border-slate-200 dark:border-outline-variant/30'
                     : 'bg-white/30 dark:bg-[#1a1512]/50 border-slate-200/60 dark:border-outline-variant/20'
-                }`}>
+                  }`}>
                   <div className={`flex items-center gap-4 ${!isPro ? 'opacity-50' : ''}`}>
                     <input type="checkbox" id="toc-toggle" checked={includeTOC} onChange={(e) => setIncludeTOC(e.target.checked)}
                       className="w-6 h-6 accent-primary-container" disabled={!isPro}
@@ -445,11 +502,10 @@ export default function Editor() {
                       />
                       <span className="text-sm font-bold">DOCX</span>
                     </label>
-                    <label className={`flex items-center gap-2 p-3 rounded-2xl border transition-colors ${
-                      isPro
+                    <label className={`flex items-center gap-2 p-3 rounded-2xl border transition-colors ${isPro
                         ? 'border-slate-200 dark:border-outline-variant/30 cursor-pointer'
                         : 'border-slate-200 dark:border-outline-variant/20 cursor-not-allowed'
-                    }`}>
+                      }`}>
                       <input
                         type="radio"
                         name="download-format"

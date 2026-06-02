@@ -83,7 +83,7 @@ export default function Landing() {
             <Link to="/upgrade" className="bg-primary-container text-white font-bold px-8 py-4 rounded-btn shadow-[0_4px_14px_0_rgba(255,107,0,0.39)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.23)] hover:-translate-y-1 transition-all duration-200 active:scale-95 no-underline">
               {t('landing.cta_pro')}
             </Link>
-            <Link to="/login" className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg text-on-surface font-bold px-8 py-4 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-all duration-200 active:scale-95 no-underline">
+            <Link to="/editor/free" className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg text-on-surface font-bold px-8 py-4 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-all duration-200 active:scale-95 no-underline">
               {t('landing.cta_free')}
             </Link>
           </motion.div>
@@ -208,7 +208,7 @@ export default function Landing() {
                   <span className="material-symbols-outlined text-primary text-sm">check_circle</span> {t('landing.feature_free_3')}
                 </li>
               </ul>
-              <Link to="/login" className="w-full text-center bg-white dark:bg-surface text-on-surface font-bold px-4 py-3 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors no-underline">
+              <Link to="/editor/free" className="w-full text-center bg-white dark:bg-surface text-on-surface font-bold px-4 py-3 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors no-underline">
                 {t('landing.cta_free')}
               </Link>
             </motion.div>

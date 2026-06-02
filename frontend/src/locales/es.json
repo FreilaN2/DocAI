@@ -76,7 +76,10 @@
     "drop_here": "¡Suéltalo aquí!",
     "toc_label": "Generar Tabla de Contenidos automáticamente",
     "pro_features_hint": "La Tabla de Contenidos y la descarga en PDF son exclusivas de",
-    "upgrade_link": "DocIA Pro"
+    "upgrade_link": "DocIA Pro",
+    "login_to_download": "Debes crear una cuenta o iniciar sesión para poder descargar.",
+    "login_success_download": "¡Sesión iniciada! Ya puedes descargar tu documento.",
+    "pro_progress_discarded": "El progreso de la versión Free fue descartado. Como usuario Pro debes procesar el archivo con nuestra IA avanzada."
   },
   "navbar": {
     "home": "Inicio",

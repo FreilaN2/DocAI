@@ -76,7 +76,10 @@
     "drop_here": "Drop it here!",
     "toc_label": "Automatically generate Table of Contents",
     "pro_features_hint": "Table of Contents and PDF download are exclusive to",
-    "upgrade_link": "DocIA Pro"
+    "upgrade_link": "DocIA Pro",
+    "login_to_download": "You must create an account or log in to download.",
+    "login_success_download": "Logged in successfully! You can now download your document.",
+    "pro_progress_discarded": "Free version progress discarded. As a Pro user, you must process the file using our advanced AI."
   },
   "navbar": {
     "home": "Home",
