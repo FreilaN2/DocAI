@@ -24,7 +24,7 @@ from google.auth.transport import requests as google_requests
 
 # Importar motores de procesamiento y base de datos
 from core.database import init_db, get_db
-from core.apa_rules import procesar_con_reglas
+from core.apa_rules import procesar_con_reglas, clasificar_parrafo_reglas
 from core.apa_ai import procesar_con_ia, procesar_con_ia_stream
 from core.auth import get_password_hash, verify_password, create_access_token
 from core.models import User, Plan, TokenBalance
@@ -216,27 +216,42 @@ def limpiar_archivos_antiguos():
                     except Exception as e:
                         logger.error(f"❌ Error al limpiar {archivo}: {e}")
 # Diccionario de Reglas APA
+LETTER_PAGE = {"width": Inches(8.5), "height": Inches(11.0)}
+FUENTES_APA = {
+    "Times New Roman": {"tamano": 12, "familia": "serif"},
+    "Georgia": {"tamano": 11, "familia": "serif"},
+    "Computer Modern": {"tamano": 10, "familia": "serif"},
+    "Calibri": {"tamano": 11, "familia": "sans-serif"},
+    "Arial": {"tamano": 11, "familia": "sans-serif"},
+    "Lucida Sans Unicode": {"tamano": 10, "familia": "sans-serif"},
+}
+DEFAULT_APA_FONT = "Times New Roman"
+
 NORMAS_APA = {
     "6ta": {
-        "fuente": "Times New Roman",
-        "tamano": 12,
+        "fuente": DEFAULT_APA_FONT,
+        "tamano": FUENTES_APA[DEFAULT_APA_FONT]["tamano"],
         "interlineado": 2.0,
         "margen": 1.0,
+        "page_width": LETTER_PAGE["width"],
+        "page_height": LETTER_PAGE["height"],
         "sangria_primera_linea": 0.5,
         "sangria_francesa": 0.5,
         "títulos": {
             "N1": {"bold": True, "italic": False, "align": "center"},
             "N2": {"bold": True, "italic": False, "align": "left"},
-            "N3": {"bold": True, "italic": False, "align": "indent"},
-            "N4": {"bold": True, "italic": True, "align": "indent"},
-            "N5": {"bold": False, "italic": True, "align": "indent"}
+            "N3": {"bold": True, "italic": False, "align": "left"},
+            "N4": {"bold": True, "italic": False, "align": "indent"},
+            "N5": {"bold": True, "italic": True, "align": "indent"}
         }
     },
     "7ma": {
-        "fuente": "Times New Roman",
-        "tamano": 12,
+        "fuente": DEFAULT_APA_FONT,
+        "tamano": FUENTES_APA[DEFAULT_APA_FONT]["tamano"],
         "interlineado": 2.0,
         "margen": 1.0,
+        "page_width": LETTER_PAGE["width"],
+        "page_height": LETTER_PAGE["height"],
         "sangria_primera_linea": 0.5,
         "sangria_francesa": 0.5,
         "títulos": {
@@ -249,6 +264,52 @@ NORMAS_APA = {
     }
 }
 
+
+def validar_fuente_apa(nombre_fuente: str) -> str:
+    if not nombre_fuente:
+        return DEFAULT_APA_FONT
+    nombre_limpio = nombre_fuente.strip().lower()
+    for fuente in FUENTES_APA:
+        if fuente.lower() == nombre_limpio:
+            return fuente
+    return DEFAULT_APA_FONT
+
+
+def formatear_titulo_apa(texto: str) -> str:
+    if not texto:
+        return texto.strip()
+
+    palabras_no_mayusculas = {
+        "a", "ante", "bajo", "con", "contra", "de", "del", "desde",
+        "durante", "e", "el", "la", "las", "los", "para", "por",
+        "sin", "sobre", "y", "o", "u", "en", "al", "aun"
+    }
+
+    partes = texto.strip().split()
+    resultado = []
+    for idx, palabra in enumerate(partes):
+        limpio = palabra.strip()
+        lower = limpio.lower()
+        if idx == 0 or lower not in palabras_no_mayusculas:
+            resultado.append(limpio.capitalize())
+        else:
+            resultado.append(lower)
+    return " ".join(resultado)
+
+
+def formatear_titulo_apa_sentence_case(texto: str) -> str:
+    if not texto:
+        return texto.strip()
+    texto_limpio = texto.strip().lower()
+    return texto_limpio[0].upper() + texto_limpio[1:] if len(texto_limpio) > 1 else texto_limpio.upper()
+
+
+def formatear_titulo_por_nivel(texto: str, nivel: str, edicion: str) -> str:
+    if edicion == "6ta" and nivel in {"N3", "N4", "N5"}:
+        return formatear_titulo_apa_sentence_case(texto)
+    return formatear_titulo_apa(texto)
+
+
 class ParrafoCorregido(BaseModel):
     texto: str
     categoria: str
@@ -260,6 +321,7 @@ class DatosFinales(BaseModel):
     plan: str = "free"
     incluir_indice: bool = False
     formato: str = "docx"
+    fuente: str = DEFAULT_APA_FONT
 
 class UserCreate(BaseModel):
     firstName: str
@@ -419,45 +481,136 @@ def añadir_marca_de_agua(doc):
         run.font.size = Pt(8)
         run.font.name = "Arial"
 
-def configurar_parrafo_estilo(paragraph, categoria, reglas):
-    paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
-    
-    if "TITULO" in categoria:
-        nivel = categoria.split("_")[-1]
-        nivel_num = 1
-        try:
-            nivel_num = int(nivel.replace("N", ""))
-        except ValueError:
-            nivel_num = 1
-        style_level = min(max(nivel_num, 1), 3)
-        paragraph.style = f"Heading {style_level}"
+def _normalizar_categoria(categoria: str) -> str:
+    if not categoria:
+        return "PARRAFO_NORMAL"
 
-        config = reglas["títulos"].get(nivel, reglas["títulos"]["N1"])
-        paragraph.paragraph_format.space_before = Pt(6)
-        paragraph.paragraph_format.space_after = Pt(6)
-        paragraph.paragraph_format.first_line_indent = Inches(reglas["sangria_primera_linea"]) if config["align"] == "indent" else Inches(0)
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER if config["align"] == "center" else WD_ALIGN_PARAGRAPH.LEFT
+    categoria_limpia = categoria.strip().upper().replace(" ", "_")
+    categoria_limpia = re.sub(r"[^A-Z0-9_]+", "", categoria_limpia)
+
+    if categoria_limpia.startswith("TITULO") and "_N" not in categoria_limpia:
+        if categoria_limpia == "TITULO":
+            categoria_limpia = "TITULO_N1"
+        else:
+            categoria_limpia = categoria_limpia.replace("TITULO", "TITULO_N1")
+
+    if categoria_limpia.startswith("REFERENCIA"):
+        return "REFERENCIA"
+    if categoria_limpia in {"CITA_LARGA", "BLOQUE_CITA"}:
+        return categoria_limpia
+    if categoria_limpia in {"TITULO_N1", "TITULO_N2", "TITULO_N3", "TITULO_N4", "TITULO_N5", "PARRAFO_NORMAL"}:
+        return categoria_limpia
+
+    return "PARRAFO_NORMAL"
+
+
+def configurar_parrafo_estilo(paragraph, categoria, reglas, body_text: str = None):
+    categoria = _normalizar_categoria(categoria)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
+    paragraph.paragraph_format.space_before = Pt(0)
+    paragraph.paragraph_format.space_after = Pt(0)
+    paragraph.paragraph_format.keep_together = True
+    paragraph.paragraph_format.first_line_indent = Inches(0)
+    paragraph.paragraph_format.left_indent = Inches(0)
+
+    categoria = categoria.upper()
+    if categoria.startswith("TITULO"):
+        nivel = categoria.split("_")[-1] if "_" in categoria else "N1"
+        edicion = reglas.get("edicion", "7ma")
+        paragraph.text = formatear_titulo_por_nivel(paragraph.text, nivel, edicion)
+        paragraph.paragraph_format.space_before = Pt(12)
+        paragraph.paragraph_format.space_after = Pt(0)
+        paragraph.paragraph_format.first_line_indent = Inches(0)
+        paragraph.paragraph_format.left_indent = Inches(0)
+
+        heading_map = {
+            "N1": "Heading 1",
+            "N2": "Heading 2",
+        }
+        if edicion == "6ta" and nivel in {"N3", "N4", "N5"}:
+            paragraph.style = "Normal"
+            paragraph.paragraph_format.left_indent = Inches(reglas["sangria_primera_linea"])
+            paragraph.paragraph_format.first_line_indent = Inches(0)
+        else:
+            paragraph.style = heading_map.get(nivel, "Heading 1")
+            if nivel in {"N3", "N4", "N5"}:
+                paragraph.paragraph_format.left_indent = Inches(reglas["sangria_primera_linea"])
+
+        if nivel == "N1":
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            bold, italic = True, False
+        elif nivel == "N2":
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            bold, italic = True, False
+        elif nivel == "N3":
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            bold, italic = True, False
+        elif nivel == "N4":
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            bold, italic = True, True
+        elif nivel == "N5":
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            bold, italic = False, True
+        else:
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            bold, italic = True, False
+
+        if body_text and edicion == "6ta" and nivel in {"N3", "N4", "N5"}:
+            heading_text = formatear_titulo_por_nivel(paragraph.text, nivel, edicion)
+            if not heading_text.strip().endswith('.'):
+                heading_text = heading_text.rstrip() + '.'
+            paragraph.text = ""
+            heading_run = paragraph.add_run(heading_text)
+            heading_run.bold = bold
+            heading_run.italic = italic
+            heading_run.font.name = reglas["fuente"]
+            heading_run.font.size = Pt(reglas["tamano"])
+            paragraph.add_run(" ")
+            body_run = paragraph.add_run(body_text.strip())
+            body_run.bold = False
+            body_run.italic = False
+            body_run.font.name = reglas["fuente"]
+            body_run.font.size = Pt(reglas["tamano"])
+            return
+
+        if edicion == "6ta" and nivel in {"N3", "N4", "N5"} and not paragraph.text.strip().endswith('.'):
+            paragraph.text = paragraph.text.rstrip() + '.'
 
         for run in paragraph.runs:
-            run.bold = config["bold"]
-            run.font.italic = config["italic"]
+            run.bold = bold
+            run.italic = italic
             run.font.name = reglas["fuente"]
             run.font.size = Pt(reglas["tamano"])
+        return
 
-    elif categoria == "REFERENCIA":
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    if categoria in {"CITA_LARGA", "BLOQUE_CITA"}:
+        paragraph.text = paragraph.text.strip().strip('“”"„»')
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        paragraph.paragraph_format.left_indent = Inches(reglas["sangria_primera_linea"])
+        paragraph.paragraph_format.first_line_indent = Inches(0)
+        for run in paragraph.runs:
+            run.font.name = reglas["fuente"]
+            run.font.size = Pt(reglas["tamano"])
+        return
+
+    if categoria == "REFERENCIA":
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
         paragraph.paragraph_format.first_line_indent = Inches(-reglas["sangria_francesa"])
         paragraph.paragraph_format.left_indent = Inches(reglas["sangria_francesa"])
         paragraph.paragraph_format.keep_together = True
+        paragraph.paragraph_format.space_before = Pt(0)
+        paragraph.paragraph_format.space_after = Pt(0)
         for run in paragraph.runs:
             run.font.name = reglas["fuente"]
             run.font.size = Pt(reglas["tamano"])
-    else:
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        paragraph.paragraph_format.first_line_indent = Inches(reglas["sangria_primera_linea"])
-        for run in paragraph.runs:
-            run.font.name = reglas["fuente"]
-            run.font.size = Pt(reglas["tamano"])
+        return
+
+    paragraph.paragraph_format.first_line_indent = Inches(reglas["sangria_primera_linea"])
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    for run in paragraph.runs:
+        run.font.name = reglas["fuente"]
+        run.font.size = Pt(reglas["tamano"])
 
 
 def _insertar_tabla_de_contenidos(doc):
@@ -673,10 +826,29 @@ async def generar_final(
     output_docx_path = os.path.join(PROCESSED_DIR, output_filename + ".docx")
     output_path = output_docx_path
     doc = Document()
-    reglas = NORMAS_APA.get(datos.edicion, NORMAS_APA["7ma"])
-    
+
+    reglas = dict(NORMAS_APA.get(datos.edicion, NORMAS_APA["7ma"]))
+    reglas["edicion"] = datos.edicion
+    if datos.edicion == "6ta":
+        reglas["fuente"] = DEFAULT_APA_FONT
+        reglas["tamano"] = FUENTES_APA[DEFAULT_APA_FONT]["tamano"]
+    else:
+        reglas["fuente"] = validar_fuente_apa(datos.fuente)
+        reglas["tamano"] = FUENTES_APA[reglas["fuente"]]["tamano"]
+
     for section in doc.sections:
+        section.page_width = LETTER_PAGE["width"]
+        section.page_height = LETTER_PAGE["height"]
         section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(reglas["margen"])
+
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = reglas["fuente"]
+    normal_style.font.size = Pt(reglas["tamano"])
+    normal_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
+    normal_style.paragraph_format.space_before = Pt(0)
+    normal_style.paragraph_format.space_after = Pt(0)
+    normal_style.paragraph_format.first_line_indent = Inches(reglas["sangria_primera_linea"])
+    normal_style.paragraph_format.left_indent = Inches(0)
 
     _configurar_encabezado_paginas(doc)
 
@@ -687,7 +859,9 @@ async def generar_final(
         else:
             headings = []
             for p in datos.parrafos:
-                cat = p.categoria.upper()
+                cat = _normalizar_categoria(p.categoria)
+                if cat not in {"TITULO_N1", "TITULO_N2", "TITULO_N3", "TITULO_N4", "TITULO_N5", "REFERENCIA", "CITA_LARGA", "BLOQUE_CITA", "PARRAFO_NORMAL"}:
+                    cat = clasificar_parrafo_reglas(p.texto)
                 if "TITULO" in cat:
                     nivel = 1
                     try:
@@ -695,6 +869,8 @@ async def generar_final(
                     except Exception:
                         nivel = 1
                     headings.append((min(max(nivel, 1), 3), p.texto.strip()))
+                elif not headings and _es_potencial_titulo_por_texto(p.texto):
+                    headings.append((2, p.texto.strip()))
 
             logger.info(f"📚 Generando Índice para {len(headings)} títulos detectados...")
             title = doc.add_paragraph("Índice")
@@ -759,18 +935,34 @@ async def generar_final(
             "bibliografias",
             "bibliograficas",
             "bibliografica",
-            "bibliografico",
             "bibliografico"
         }
         return base in continuaciones_validas or base.startswith("bibliograf")
 
+    def _ordenar_referencia_por_autor(texto: str) -> str:
+        texto_limpio = texto.strip()
+        match = re.match(r'^\s*([A-ZÁÉÍÓÚÑÜÇ][\wÁÉÍÓÚÑÜÇ\'-]+)', texto_limpio, re.IGNORECASE)
+        if match:
+            return match.group(1).lower()
+        return re.sub(r'[^a-z0-9]+', '', texto_limpio.lower())
+
     # --- Generación del Cuerpo del Documento ---
     reference_started = False
     paragraph_counter = 0
+    reference_buffer = []
     i = 0
     while i < len(datos.parrafos):
         p = datos.parrafos[i]
-        cat = p.categoria.upper()
+        cat = _normalizar_categoria(p.categoria)
+
+        if datos.edicion == "6ta" and cat in {"TITULO_N3", "TITULO_N4", "TITULO_N5"} and i + 1 < len(datos.parrafos):
+            siguiente_cat = _normalizar_categoria(datos.parrafos[i + 1].categoria)
+            if siguiente_cat == "PARRAFO_NORMAL":
+                paragraph = doc.add_paragraph()
+                configurar_parrafo_estilo(paragraph, cat, reglas, body_text=datos.parrafos[i + 1].texto.strip())
+                paragraph_counter += 1
+                i += 2
+                continue
 
         if not reference_started and _es_encabezado_referencias(p.texto):
             if paragraph_counter > 0:
@@ -782,9 +974,9 @@ async def generar_final(
                 i += 1
 
             ref_heading = doc.add_paragraph(heading_texto)
-            ref_heading.style = "Heading 1"
+            ref_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for run in ref_heading.runs:
-                run.bold = True
+                run.bold = False if datos.edicion == "6ta" else True
                 run.font.name = reglas["fuente"]
                 run.font.size = Pt(reglas["tamano"])
             ref_heading.paragraph_format.space_before = Pt(12)
@@ -799,19 +991,37 @@ async def generar_final(
                 doc.add_page_break()
 
             ref_heading = doc.add_paragraph("Referencias")
-            ref_heading.style = "Heading 1"
+            ref_heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
             for run in ref_heading.runs:
-                run.bold = True
+                run.bold = False if datos.edicion == "6ta" else True
                 run.font.name = reglas["fuente"]
                 run.font.size = Pt(reglas["tamano"])
             ref_heading.paragraph_format.space_before = Pt(12)
             ref_heading.paragraph_format.space_after = Pt(12)
             reference_started = True
 
+        if reference_started and cat == "REFERENCIA":
+            reference_buffer.append(p)
+            i += 1
+            continue
+
+        if reference_started and reference_buffer:
+            for ref in sorted(reference_buffer, key=lambda item: _ordenar_referencia_por_autor(item.texto)):
+                paragraph = doc.add_paragraph(ref.texto)
+                configurar_parrafo_estilo(paragraph, ref.categoria, reglas)
+                paragraph_counter += 1
+            reference_buffer = []
+
         paragraph = doc.add_paragraph(p.texto)
-        configurar_parrafo_estilo(paragraph, p.categoria, reglas)
+        configurar_parrafo_estilo(paragraph, cat, reglas)
         paragraph_counter += 1
         i += 1
+
+    if reference_buffer:
+        for ref in sorted(reference_buffer, key=lambda item: _ordenar_referencia_por_autor(item.texto)):
+            paragraph = doc.add_paragraph(ref.texto)
+            configurar_parrafo_estilo(paragraph, ref.categoria, reglas)
+            paragraph_counter += 1
 
     if datos.incluir_indice and datos.plan == "pro":
         _force_update_fields(doc)

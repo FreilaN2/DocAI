@@ -15,8 +15,19 @@ export default function Editor() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [edicion, setEdicion] = useState("7ma");
+  const [fuente, setFuente] = useState("Times New Roman");
   const [result, setResult] = useState(null);
   const [includeTOC, setIncludeTOC] = useState(true);
+
+  const fuenteOpciones = edicion === "6ta"
+    ? ["Times New Roman"]
+    : ["Times New Roman", "Arial", "Calibri", "Georgia", "Lucida Sans Unicode"];
+
+  useEffect(() => {
+    if (edicion === "6ta" && fuente !== "Times New Roman") {
+      setFuente("Times New Roman");
+    }
+  }, [edicion, fuente]);
   const [downloadFormat, setDownloadFormat] = useState('docx');
   const [isDragging, setIsDragging] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(null);
@@ -112,7 +123,7 @@ export default function Editor() {
       setFile(selectedFile);
       setResult(null);
     } else {
-      alert("Por favor, selecciona un archivo .docx válido.");
+      alert(t('editor.invalid_docx_alert'));
     }
   };
 
@@ -126,7 +137,7 @@ export default function Editor() {
       setFile(droppedFile);
       setResult(null);
     } else {
-      alert("Por favor, suelta un archivo .docx válido.");
+      alert(t('editor.drop_invalid_docx_alert'));
     }
   };
 
@@ -237,6 +248,7 @@ export default function Editor() {
       const savedFilename = sessionStorage.getItem('docai_pending_filename');
       const payload = {
         edicion,
+        fuente,
         filename: file ? file.name : (savedFilename || 'documento_docai.docx'),
         plan,
         parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
@@ -246,7 +258,7 @@ export default function Editor() {
       const response = await api.post('/generar-final/', payload);
       window.location.href = `${api.defaults.baseURL}/descargar/${response.data.file_id}`;
     } catch (error) {
-      alert("Error al generar el documento final.");
+      alert(t('editor.generate_error'));
     } finally {
       setLoading(false);
     }
@@ -337,7 +349,7 @@ export default function Editor() {
               </div>
 
               <div className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-[20px] rounded-card border border-slate-200 dark:border-outline-variant/30 p-8 shadow-sm">
-                <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('editor.style')}</label>
                     <select value={edicion} onChange={(e) => setEdicion(e.target.value)}
@@ -348,9 +360,20 @@ export default function Editor() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Formato</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('editor.font')}</label>
+                    <select value={fuente} onChange={(e) => setFuente(e.target.value)}
+                      className="w-full p-4 bg-white dark:bg-surface border border-slate-200 dark:border-outline-variant/30 rounded-2xl focus:ring-4 focus:ring-orange-100 dark:focus:ring-primary/20 outline-none text-sm font-bold transition-all cursor-pointer"
+                      disabled={edicion === "6ta"}
+                    >
+                      {fuenteOpciones.map((fontOption) => (
+                        <option key={fontOption} value={fontOption}>{fontOption}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('editor.format')}</label>
                     <div className="p-4 bg-slate-50 dark:bg-surface-variant border border-slate-200 dark:border-outline-variant/30 rounded-2xl text-sm font-bold text-slate-500 dark:text-on-surface-variant flex items-center gap-2">
-                      <span className="material-symbols-outlined text-sm">description</span> Microsoft Word (.docx)
+                      <span className="material-symbols-outlined text-sm">description</span> {t('editor.word_docx')}
                     </div>
                   </div>
                 </div>
@@ -500,7 +523,7 @@ export default function Editor() {
                         onChange={() => setDownloadFormat('docx')}
                         className="accent-primary-container"
                       />
-                      <span className="text-sm font-bold">DOCX</span>
+                      <span className="text-sm font-bold">{t('editor.docx')}</span>
                     </label>
                     <label className={`flex items-center gap-2 p-3 rounded-2xl border transition-colors ${isPro
                         ? 'border-slate-200 dark:border-outline-variant/30 cursor-pointer'
