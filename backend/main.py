@@ -657,18 +657,19 @@ async def upload_documento(
     """Guarda el .docx temporalmente y retorna un upload_id para el stream SSE."""
     background_tasks.add_task(limpiar_archivos_antiguos)
 
-    if not file.filename.endswith(".docx"):
+    if not file.filename or not file.filename.lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="Solo se aceptan archivos .docx")
 
     contents = await file.read()
     upload_id = str(uuid.uuid4())
-    input_path = os.path.join(UPLOAD_DIR, f"{upload_id}_{file.filename}")
+    safe_filename = re.sub(r"[^A-Za-z0-9.-]", "_", file.filename) if file.filename else "upload.docx"
+    input_path = os.path.join(UPLOAD_DIR, f"{upload_id}_{safe_filename}")
     with open(input_path, "wb") as f:
         f.write(contents)
 
-    upload_storage[upload_id] = (input_path, file.filename)
-    logger.info(f"📤 Upload #{upload_id}: {file.filename} ({len(contents)} bytes)")
-    return {"upload_id": upload_id, "filename": file.filename}
+    upload_storage[upload_id] = (input_path, safe_filename)
+    logger.info(f"📤 Upload #{upload_id}: {safe_filename} ({len(contents)} bytes)")
+    return {"upload_id": upload_id, "filename": safe_filename}
 
 
 # ── GET /procesar-apa/stream — Paso 2: SSE con progreso en tiempo real ──

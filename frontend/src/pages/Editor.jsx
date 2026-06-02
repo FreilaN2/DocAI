@@ -119,7 +119,7 @@ export default function Editor() {
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile && selectedFile.name.endsWith('.docx')) {
+    if (selectedFile && selectedFile.name.toLowerCase().endsWith('.docx')) {
       setFile(selectedFile);
       setResult(null);
     } else {
@@ -133,7 +133,7 @@ export default function Editor() {
     e.preventDefault();
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.name.endsWith('.docx')) {
+    if (droppedFile && droppedFile.name.toLowerCase().endsWith('.docx')) {
       setFile(droppedFile);
       setResult(null);
     } else {
@@ -154,7 +154,9 @@ export default function Editor() {
     try {
       // ── Paso 1: Subir el archivo ───────────────────────────────────────
       const formData = new FormData();
-      formData.append('file', file);
+      const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const safeFile = new File([file], safeName, { type: file.type });
+      formData.append('file', safeFile);
       const uploadResp = await api.post('/upload-documento/', formData);
       const { upload_id } = uploadResp.data;
 
