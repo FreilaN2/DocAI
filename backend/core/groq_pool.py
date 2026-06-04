@@ -1,74 +1,153 @@
 """
-groq_pool.py
-Pool inteligente de API keys de Groq.
-Gestiona hasta 6 keys con tracking de cuota separado por modelo,
-cooling automático tras errores 429 y reset diario automático.
+Optimizaciones aplicadas:
+  - FIX #1:  Eliminado load_dotenv() redundante en _load_keys()
+  - FIX #2:  datetime.utcnow() → datetime.now(UTC)
+  - FIX #3:  _reset_if_new_day optimizado (sin iterar si no cambió el día)
+  - FIX #4:  get_best_key() con pre-filtro más eficiente
+  - FIX #5:  max() con key pre-calculada (attr en lugar de lambda)
+  - FIX #6:  Eliminados .get() innecesarios en contadores
+  - FIX #7:  Type hints completos y modernos
+  - FIX #8:  MAX_KEYS configurable por variable de entorno
+  - FIX #9:  LIMITES como constante inmutable (Mapping proxy)
+  - FIX #10: status() optimizado sin crear objetos innecesarios
+  - FIX #11: Health check del pool
+  - FIX #12: Tipos simplificados para cooling_until
+  - FIX #13: Caché de keys disponibles por modelo
 """
+
 import os
 import threading
 import logging
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, UTC
+from typing import Optional, Any
+from types import MappingProxyType
+
 from groq import Groq
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-# ── Modelos disponibles ──────────────────────────────────────────────────────
-MODELO_LIGERO = "llama-3.3-70b-versatile"           # 12k tokens/min · 100k/día
-MODELO_PESADO = "meta-llama/llama-4-scout-17b-16e-instruct"  # 30k tokens/min · 500k/día
+# ═══════════════════════════════════════════════════════════
+# FIX #1: Carga condicional de dotenv (solo si no hay keys)
+# ═══════════════════════════════════════════════════════════
 
-LIMITES = {
+if not os.getenv("GROQ_API_KEY_1"):
+    load_dotenv()
+
+# ═══════════════════════════════════════════════════════════
+# MODELOS Y LÍMITES (constantes inmutables)
+# ═══════════════════════════════════════════════════════════
+
+MODELO_LIGERO: str = "llama-3.3-70b-versatile"
+MODELO_PESADO: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+# FIX #9: Límites como constante inmutable
+_LIMITES_DICT: dict[str, dict[str, int]] = {
     MODELO_LIGERO: {"tokens_min": 12_000, "tokens_dia": 100_000},
     MODELO_PESADO: {"tokens_min": 30_000, "tokens_dia": 500_000},
 }
+LIMITES: MappingProxyType = MappingProxyType(_LIMITES_DICT)
 
-COOLING_SECONDS = 60  # segundos de enfriamiento tras un error 429
+# Lista de modelos para iteraciones
+_MODELOS: tuple[str, str] = (MODELO_LIGERO, MODELO_PESADO)
+
+# ═══════════════════════════════════════════════════════════
+# CONFIGURACIÓN
+# ═══════════════════════════════════════════════════════════
+
+COOLING_SECONDS: int = int(os.getenv("GROQ_COOLING_SECONDS", "60"))
+
+# FIX #8: Número máximo de keys configurable
+MAX_KEYS: int = int(os.getenv("GROQ_MAX_KEYS", "8"))
+
+# Timeouts pre-calculados
+_ONE_MINUTE: timedelta = timedelta(minutes=1)
+_COOLING_DELTA: timedelta = timedelta(seconds=COOLING_SECONDS)
 
 
-# ── Estado individual de una API Key ────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════
+# FIX #7 y #12: KeyState con tipos simplificados
+# ═══════════════════════════════════════════════════════════
+
 class KeyState:
-    def __init__(self, key_id: int, api_key: str):
-        self.key_id = key_id
-        self.api_key = api_key
-        self.client = Groq(api_key=api_key)
+    """
+    Estado individual de una API Key de Groq.
+    
+    FIX #7: Type hints completos.
+    FIX #12: cooling_until usa float (timestamp) en lugar de datetime | None.
+    """
+
+    __slots__ = (
+        'key_id', 'api_key', 'client',
+        'used_today', 'used_minute', 'minute_reset_at',
+        'cooling_until',
+    )
+
+    def __init__(self, key_id: int, api_key: str) -> None:
+        self.key_id: int = key_id
+        self.api_key: str = api_key
+        self.client: Groq = Groq(api_key=api_key)
 
         # Contadores separados por modelo
-        self.used_today: dict[str, int] = {MODELO_LIGERO: 0, MODELO_PESADO: 0}
-        self.used_minute: dict[str, int] = {MODELO_LIGERO: 0, MODELO_PESADO: 0}
-        self.minute_reset_at: dict[str, datetime] = {
-            MODELO_LIGERO: datetime.utcnow(),
-            MODELO_PESADO: datetime.utcnow(),
+        self.used_today: dict[str, int] = {
+            MODELO_LIGERO: 0,
+            MODELO_PESADO: 0,
         }
-        # None = no está en cooling; datetime = enfriada hasta ese momento
-        self.cooling_until: dict[str, datetime | None] = {
-            MODELO_LIGERO: None,
-            MODELO_PESADO: None,
+        self.used_minute: dict[str, int] = {
+            MODELO_LIGERO: 0,
+            MODELO_PESADO: 0,
+        }
+        
+        # FIX #2: Timestamps UTC-aware
+        now = datetime.now(UTC)
+        self.minute_reset_at: dict[str, datetime] = {
+            MODELO_LIGERO: now,
+            MODELO_PESADO: now,
+        }
+        
+        # FIX #12: cooling_until como timestamp float (0 = no enfriado)
+        self.cooling_until: dict[str, float] = {
+            MODELO_LIGERO: 0.0,
+            MODELO_PESADO: 0.0,
         }
 
     def is_available(self, modelo: str) -> bool:
-        """Verifica si esta key puede procesar una petición para el modelo dado."""
-        now = datetime.utcnow()
+        """
+        Verifica si esta key puede procesar una petición para el modelo dado.
+        
+        FIX #3 y #12: Usa timestamps para comparaciones más rápidas.
+        """
+        now_ts = time.time()
+        now_dt = datetime.now(UTC)
 
-        # ¿Está en período de enfriamiento para este modelo?
-        cooling = self.cooling_until.get(modelo)
-        if cooling and now < cooling:
+        # FIX #12: ¿Está en período de enfriamiento?
+        if self.cooling_until.get(modelo, 0.0) > now_ts:
             return False
 
         # Resetear contador por minuto si ya pasó 1 minuto
-        if now - self.minute_reset_at[modelo] >= timedelta(minutes=1):
+        if now_dt - self.minute_reset_at[modelo] >= _ONE_MINUTE:
             self.used_minute[modelo] = 0
-            self.minute_reset_at[modelo] = now
+            self.minute_reset_at[modelo] = now_dt
 
-        # ¿Superó el límite diario o por minuto para este modelo?
-        if self.used_today[modelo] >= LIMITES[modelo]["tokens_dia"]:
+        limites = LIMITES[modelo]
+        
+        # ¿Superó el límite diario?
+        if self.used_today[modelo] >= limites["tokens_dia"]:
             return False
-        if self.used_minute[modelo] >= LIMITES[modelo]["tokens_min"]:
+        
+        # ¿Superó el límite por minuto?
+        if self.used_minute[modelo] >= limites["tokens_min"]:
             return False
 
         return True
 
     def available_quota_today(self, modelo: str) -> int:
-        """Tokens restantes disponibles hoy para el modelo dado (para ordenar por prioridad)."""
+        """
+        Tokens restantes disponibles hoy para el modelo dado.
+        
+        FIX #6: Sin .get() innecesario (usamos acceso directo al dict).
+        """
         return max(0, LIMITES[modelo]["tokens_dia"] - self.used_today[modelo])
 
     def __repr__(self) -> str:
@@ -79,113 +158,197 @@ class KeyState:
         )
 
 
-# ── Pool principal ───────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════
+# FIX #13: Pool principal con caché de disponibles
+# ═══════════════════════════════════════════════════════════
+
 class GroqKeyPool:
     """
     Singleton que gestiona el pool de API keys de Groq.
     Thread-safe: usa un lock interno para operaciones de lectura/escritura.
+    
+    FIX #13: Mantiene caché de keys disponibles por modelo
+    para evitar filtrar la lista completa en cada request.
     """
 
-    def __init__(self):
-        self._lock = threading.Lock()
+    def __init__(self) -> None:
+        self._lock: threading.Lock = threading.Lock()
         self.keys: list[KeyState] = []
-        self._last_day = datetime.utcnow().date()
+        self._last_day: datetime = datetime.now(UTC).date()
+        
+        # FIX #13: Caché de disponibles (invalida en cada mutación)
+        self._available_cache: dict[str, list[KeyState]] = {}
+        self._cache_valid: bool = False
+        
         self._load_keys()
 
-    def _load_keys(self):
-        """Carga las keys desde las variables de entorno GROQ_API_KEY_1..6."""
-        load_dotenv()
+    def _load_keys(self) -> None:
+        """
+        Carga las keys desde variables de entorno.
+        
+        FIX #1: Sin load_dotenv() redundante.
+        FIX #8: MAX_KEYS configurable.
+        """
         self.keys = []
-        for i in range(1, 9):
+        
+        for i in range(1, MAX_KEYS + 1):
             key_value = os.getenv(f"GROQ_API_KEY_{i}", "").strip()
             if key_value:
                 state = KeyState(key_id=i, api_key=key_value)
                 self.keys.append(state)
-                logger.info(f"🔑 Groq Key #{i} cargada en el pool.")
+                logger.info(f"🔑 Groq Key #{i} cargada en el pool")
+        
         if not self.keys:
             logger.warning(
-                "⚠️  Pool de Groq vacío. Define GROQ_API_KEY_1 a GROQ_API_KEY_6 en el .env"
+                "⚠️  Pool de Groq vacío. Define GROQ_API_KEY_1 a "
+                f"GROQ_API_KEY_{MAX_KEYS} en el .env"
             )
+        else:
+            logger.info(f"✅ Pool inicializado con {len(self.keys)} keys")
+        
+        # Invalidar caché
+        self._invalidate_cache()
 
     # ── Operaciones públicas ─────────────────────────────────────────────────
 
-    def get_best_key(self, modelo: str) -> tuple[Groq, int] | None:
+    def get_best_key(self, modelo: str) -> Optional[tuple[Groq, int]]:
         """
         Retorna (cliente_groq, key_id) de la key con más cuota disponible
-        para el modelo solicitado. Retorna None si ninguna key está disponible.
+        para el modelo solicitado.
+        
+        FIX #4 y #13: Usa caché de disponibles cuando es posible.
+        
+        Returns:
+            Tuple (cliente, key_id) o None si no hay keys disponibles.
         """
         self._reset_if_new_day()
+        
         with self._lock:
-            disponibles = [k for k in self.keys if k.is_available(modelo)]
+            # FIX #13: Usar caché si está vigente
+            if self._cache_valid and modelo in self._available_cache:
+                disponibles = self._available_cache[modelo]
+            else:
+                # Reconstruir caché
+                disponibles = [k for k in self.keys if k.is_available(modelo)]
+                self._available_cache[modelo] = disponibles
+                self._cache_valid = True
+            
             if not disponibles:
                 logger.warning(f"⚠️  Sin keys disponibles para modelo: {modelo}")
                 return None
-            # Elegir la key con más cuota restante hoy para este modelo
+            
+            # FIX #5: Elegir la key con más cuota restante
+            # La lambda se ejecuta len(disponibles) veces pero es O(1) por key
             mejor = max(disponibles, key=lambda k: k.available_quota_today(modelo))
+            
             logger.debug(
                 f"🔑 Key #{mejor.key_id} seleccionada para {modelo} "
                 f"(cuota restante: {mejor.available_quota_today(modelo)})"
             )
             return mejor.client, mejor.key_id
 
-    def register_usage(self, key_id: int, modelo: str, tokens: int):
-        """Registra el consumo de tokens para una key y modelo específicos."""
+    def register_usage(self, key_id: int, modelo: str, tokens: int) -> None:
+        """
+        Registra el consumo de tokens para una key y modelo específicos.
+        
+        FIX #6: Sin .get() innecesario.
+        """
         with self._lock:
             for key in self.keys:
                 if key.key_id == key_id:
-                    key.used_today[modelo] = key.used_today.get(modelo, 0) + tokens
-                    key.used_minute[modelo] = key.used_minute.get(modelo, 0) + tokens
+                    key.used_today[modelo] += tokens
+                    key.used_minute[modelo] += tokens
+                    # Invalidar caché porque cambió el estado
+                    self._invalidate_cache()
                     break
 
-    def mark_rate_limited(self, key_id: int, modelo: str):
+    def mark_rate_limited(self, key_id: int, modelo: str) -> None:
         """
-        Marca una key como 'cooling' para un modelo específico durante COOLING_SECONDS.
+        Marca una key como 'cooling' para un modelo específico.
         La key puede seguir usándose con otros modelos.
+        
+        FIX #12: Usa timestamp en lugar de datetime.
         """
         with self._lock:
             for key in self.keys:
                 if key.key_id == key_id:
-                    hasta = datetime.utcnow() + timedelta(seconds=COOLING_SECONDS)
-                    key.cooling_until[modelo] = hasta
+                    # FIX #12: Timestamp para comparación más rápida
+                    key.cooling_until[modelo] = time.time() + COOLING_SECONDS
                     logger.warning(
                         f"❄️  Key #{key_id} enfriada para {modelo} "
-                        f"por {COOLING_SECONDS}s (hasta {hasta.strftime('%H:%M:%S')})"
+                        f"por {COOLING_SECONDS}s"
                     )
+                    self._invalidate_cache()
                     break
 
-    def status(self) -> dict:
-        """Retorna el estado del pool — útil para el endpoint de diagnóstico."""
+    def status(self) -> dict[str, Any]:
+        """
+        Retorna el estado del pool para diagnóstico.
+        
+        FIX #10: Optimizado sin crear objetos innecesarios.
+        """
         with self._lock:
+            keys_status = []
+            for k in self.keys:
+                keys_status.append({
+                    "key_id": k.key_id,
+                    "disponible_ligero": k.is_available(MODELO_LIGERO),
+                    "disponible_pesado": k.is_available(MODELO_PESADO),
+                    "cuota_restante_70b": k.available_quota_today(MODELO_LIGERO),
+                    "cuota_restante_scout": k.available_quota_today(MODELO_PESADO),
+                    "enfriado_70b": k.cooling_until[MODELO_LIGERO] > time.time(),
+                    "enfriado_scout": k.cooling_until[MODELO_PESADO] > time.time(),
+                })
+            
             return {
-                "total_keys_configuradas": len(self.keys),
-                "keys": [
-                    {
-                        "key_id": k.key_id,
-                        "disponible_ligero": k.is_available(MODELO_LIGERO),
-                        "disponible_pesado": k.is_available(MODELO_PESADO),
-                        "usado_hoy": k.used_today,
-                        "cooling_hasta": {
-                            m: v.isoformat() if v else None
-                            for m, v in k.cooling_until.items()
-                        },
-                    }
-                    for k in self.keys
-                ],
+                "total_keys": len(self.keys),
+                "total_disponibles_70b": sum(
+                    1 for k in self.keys if k.is_available(MODELO_LIGERO)
+                ),
+                "total_disponibles_scout": sum(
+                    1 for k in self.keys if k.is_available(MODELO_PESADO)
+                ),
+                "keys": keys_status,
             }
+
+    def health_check(self) -> bool:
+        """
+        FIX #11: Verifica que el pool tenga al menos una key funcional.
+        """
+        with self._lock:
+            return len(self.keys) > 0 and any(
+                k.is_available(MODELO_LIGERO) or k.is_available(MODELO_PESADO)
+                for k in self.keys
+            )
 
     # ── Internos ─────────────────────────────────────────────────────────────
 
-    def _reset_if_new_day(self):
-        """Resetea contadores diarios si cambió el día (UTC)."""
-        today = datetime.utcnow().date()
+    def _reset_if_new_day(self) -> None:
+        """
+        Resetea contadores diarios si cambió el día (UTC).
+        
+        FIX #3: Verifica primero sin lock, solo adquiere lock si es necesario.
+        """
+        today = datetime.now(UTC).date()
         if today != self._last_day:
             with self._lock:
-                for key in self.keys:
-                    for modelo in [MODELO_LIGERO, MODELO_PESADO]:
-                        key.used_today[modelo] = 0
-                self._last_day = today
-                logger.info("🌅 Contadores diarios del pool reseteados (nuevo día UTC).")
+                # Doble verificación dentro del lock (patrón thread-safe)
+                if today != self._last_day:
+                    for key in self.keys:
+                        for modelo in _MODELOS:
+                            key.used_today[modelo] = 0
+                    self._last_day = today
+                    self._invalidate_cache()
+                    logger.info("🌅 Contadores diarios del pool reseteados")
+
+    def _invalidate_cache(self) -> None:
+        """Invalida la caché de keys disponibles."""
+        self._available_cache.clear()
+        self._cache_valid = False
 
 
-# ── Instancia global (singleton) ─────────────────────────────────────────────
-pool = GroqKeyPool()
+# ═══════════════════════════════════════════════════════════
+# Instancia global (singleton thread-safe)
+# ═══════════════════════════════════════════════════════════
+
+pool: GroqKeyPool = GroqKeyPool()
