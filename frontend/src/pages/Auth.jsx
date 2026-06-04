@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
@@ -6,8 +6,8 @@ import api from '../api';
 import toast from 'react-hot-toast';
 import { GoogleLogin } from '@react-oauth/google';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
-// Lista de países
 const countryList = [
   { code: 'AR', name: 'Argentina' }, { code: 'BO', name: 'Bolivia' }, { code: 'CL', name: 'Chile' },
   { code: 'CO', name: 'Colombia' }, { code: 'CR', name: 'Costa Rica' }, { code: 'CU', name: 'Cuba' },
@@ -22,69 +22,11 @@ const countryList = [
 const inputBaseClasses = "w-full py-4 pr-4 pl-12 h-[56px] bg-black/5 dark:bg-black/20 border border-outline/30 rounded-xl focus:border-primary-container focus:bg-primary-container/10 outline-none text-sm transition-colors duration-200 text-on-surface placeholder:text-on-surface-variant/50";
 const labelBaseClasses = "text-[11px] font-bold text-on-surface-variant uppercase tracking-widest ml-1 mb-1 block";
 
-const Pupil = ({ size = 12, maxDistance = 5, pupilColor = "black", forceLookX, forceLookY }) => {
-  const [mouseX, setMouseX] = useState(0);
-  const [mouseY, setMouseY] = useState(0);
-  const pupilRef = useRef(null);
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
-
-  const calculatePupilPosition = () => {
-    if (!pupilRef.current) return { x: 0, y: 0 };
-    if (forceLookX !== undefined && forceLookY !== undefined) return { x: forceLookX, y: forceLookY };
-
-    const pupil = pupilRef.current.getBoundingClientRect();
-    const pupilCenterX = pupil.left + pupil.width / 2;
-    const pupilCenterY = pupil.top + pupil.height / 2;
-
-    const deltaX = mouseX - pupilCenterX;
-    const deltaY = mouseY - pupilCenterY;
-    const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDistance);
-
-    const angle = Math.atan2(deltaY, deltaX);
-    const x = Math.cos(angle) * distance;
-    const y = Math.sin(angle) * distance;
-
-    return { x, y };
-  };
-
-  const pupilPosition = calculatePupilPosition();
-
-  return (
-    <div
-      ref={pupilRef}
-      className="rounded-full"
-      style={{
-        width: `${size}px`, height: `${size}px`, backgroundColor: pupilColor,
-        transform: `translate(${pupilPosition.x}px, ${pupilPosition.y}px)`,
-        transition: 'transform 0.1s ease-out',
-      }}
-    />
-  );
-};
-
-const EyeBall = ({ size = 48, pupilSize = 16, maxDistance = 10, eyeColor = "white", pupilColor = "black", isBlinking = false, forceLookX, forceLookY }) => {
-  const [mouseX, setMouseX] = useState(0);
-  const [mouseY, setMouseY] = useState(0);
+// ─── EyeBall OPTIMIZADO (recibe mouseX/mouseY del padre) ───
+const EyeBall = React.memo(({ size = 48, pupilSize = 16, maxDistance = 10, eyeColor = "white", pupilColor = "black", isBlinking = false, forceLookX, forceLookY, mouseX, mouseY }) => {
   const eyeRef = useRef(null);
 
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
-
-  const calculatePupilPosition = () => {
+  const calculatePupilPosition = useCallback(() => {
     if (!eyeRef.current) return { x: 0, y: 0 };
     if (forceLookX !== undefined && forceLookY !== undefined) return { x: forceLookX, y: forceLookY };
 
@@ -95,30 +37,35 @@ const EyeBall = ({ size = 48, pupilSize = 16, maxDistance = 10, eyeColor = "whit
     const deltaX = mouseX - eyeCenterX;
     const deltaY = mouseY - eyeCenterY;
     const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDistance);
-
     const angle = Math.atan2(deltaY, deltaX);
-    const x = Math.cos(angle) * distance;
-    const y = Math.sin(angle) * distance;
 
-    return { x, y };
-  };
+    return {
+      x: Math.cos(angle) * distance,
+      y: Math.sin(angle) * distance,
+    };
+  }, [mouseX, mouseY, maxDistance, forceLookX, forceLookY]);
 
   const pupilPosition = calculatePupilPosition();
 
   return (
     <div
       ref={eyeRef}
-      className="rounded-full flex items-center justify-center transition-all duration-150"
+      className="rounded-full flex items-center justify-center"
       style={{
-        width: `${size}px`, height: isBlinking ? '2px' : `${size}px`,
-        backgroundColor: eyeColor, overflow: 'hidden',
+        width: `${size}px`,
+        height: isBlinking ? '2px' : `${size}px`,
+        backgroundColor: eyeColor,
+        overflow: 'hidden',
+        transition: 'height 0.1s ease',
       }}
     >
       {!isBlinking && (
         <div
           className="rounded-full"
           style={{
-            width: `${pupilSize}px`, height: `${pupilSize}px`, backgroundColor: pupilColor,
+            width: `${pupilSize}px`,
+            height: `${pupilSize}px`,
+            backgroundColor: pupilColor,
             transform: `translate(${pupilPosition.x}px, ${pupilPosition.y}px)`,
             transition: 'transform 0.1s ease-out',
           }}
@@ -126,8 +73,49 @@ const EyeBall = ({ size = 48, pupilSize = 16, maxDistance = 10, eyeColor = "whit
       )}
     </div>
   );
-};
+});
 
+// ─── Pupil OPTIMIZADO (recibe mouseX/mouseY del padre) ───
+const Pupil = React.memo(({ size = 12, maxDistance = 5, pupilColor = "black", forceLookX, forceLookY, mouseX, mouseY }) => {
+  const pupilRef = useRef(null);
+
+  const calculatePupilPosition = useCallback(() => {
+    if (!pupilRef.current) return { x: 0, y: 0 };
+    if (forceLookX !== undefined && forceLookY !== undefined) return { x: forceLookX, y: forceLookY };
+
+    const pupil = pupilRef.current.getBoundingClientRect();
+    const pupilCenterX = pupil.left + pupil.width / 2;
+    const pupilCenterY = pupil.top + pupil.height / 2;
+
+    const deltaX = mouseX - pupilCenterX;
+    const deltaY = mouseY - pupilCenterY;
+    const distance = Math.min(Math.sqrt(deltaX ** 2 + deltaY ** 2), maxDistance);
+    const angle = Math.atan2(deltaY, deltaX);
+
+    return {
+      x: Math.cos(angle) * distance,
+      y: Math.sin(angle) * distance,
+    };
+  }, [mouseX, mouseY, maxDistance, forceLookX, forceLookY]);
+
+  const pupilPosition = calculatePupilPosition();
+
+  return (
+    <div
+      ref={pupilRef}
+      className="rounded-full"
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        backgroundColor: pupilColor,
+        transform: `translate(${pupilPosition.x}px, ${pupilPosition.y}px)`,
+        transition: 'transform 0.1s ease-out',
+      }}
+    />
+  );
+});
+
+// ─── COMPONENTE PRINCIPAL ───
 export default function Auth() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -146,8 +134,27 @@ export default function Auth() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  
+  // ─── SOLO UN listener de mouse para TODOS los personajes ───
   const [mouseX, setMouseX] = useState(0);
   const [mouseY, setMouseY] = useState(0);
+
+  useEffect(() => {
+    let ticking = false;
+    const handleMouseMove = (e) => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setMouseX(e.clientX);
+          setMouseY(e.clientY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
   const [isPurpleBlinking, setIsPurpleBlinking] = useState(false);
   const [isBlackBlinking, setIsBlackBlinking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -162,6 +169,7 @@ export default function Auth() {
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  // Cerrar dropdown al click fuera
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -172,85 +180,69 @@ export default function Auth() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Parpadeos optimizados con un solo timer
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMouseX(e.clientX);
-      setMouseY(e.clientY);
+    const scheduleBlink = (setter) => {
+      const timeout = setTimeout(() => {
+        setter(true);
+        setTimeout(() => setter(false), 150);
+      }, Math.random() * 4000 + 3000);
+      return timeout;
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+
+    let purpleTimeout, blackTimeout;
+    
+    const schedulePurple = () => {
+      purpleTimeout = scheduleBlink(setIsPurpleBlinking);
+    };
+    const scheduleBlack = () => {
+      blackTimeout = scheduleBlink(setIsBlackBlinking);
+    };
+
+    schedulePurple();
+    scheduleBlack();
+
+    return () => {
+      clearTimeout(purpleTimeout);
+      clearTimeout(blackTimeout);
+    };
   }, []);
 
-  useEffect(() => {
-    const getRandomBlinkInterval = () => Math.random() * 4000 + 3000;
-    const scheduleBlink = () => {
-      const blinkTimeout = setTimeout(() => {
-        setIsPurpleBlinking(true);
-        setTimeout(() => {
-          setIsPurpleBlinking(false);
-          scheduleBlink();
-        }, 150);
-      }, getRandomBlinkInterval());
-      return blinkTimeout;
-    };
-    const timeout = scheduleBlink();
-    return () => clearTimeout(timeout);
-  }, []);
-
-  useEffect(() => {
-    const getRandomBlinkInterval = () => Math.random() * 4000 + 3000;
-    const scheduleBlink = () => {
-      const blinkTimeout = setTimeout(() => {
-        setIsBlackBlinking(true);
-        setTimeout(() => {
-          setIsBlackBlinking(false);
-          scheduleBlink();
-        }, 150);
-      }, getRandomBlinkInterval());
-      return blinkTimeout;
-    };
-    const timeout = scheduleBlink();
-    return () => clearTimeout(timeout);
-  }, []);
-
+  // Efecto "mirarse" al escribir
   useEffect(() => {
     if (isTyping) {
       setIsLookingAtEachOther(true);
       const timer = setTimeout(() => setIsLookingAtEachOther(false), 800);
       return () => clearTimeout(timer);
-    } else {
-      setIsLookingAtEachOther(false);
     }
+    setIsLookingAtEachOther(false);
   }, [isTyping]);
 
+  // Efecto "espiar" contraseña
   useEffect(() => {
     if (formData.password.length > 0 && showPassword) {
-      const schedulePeek = () => {
-        const peekInterval = setTimeout(() => {
-          setIsPurplePeeking(true);
-          setTimeout(() => setIsPurplePeeking(false), 800);
-        }, Math.random() * 3000 + 2000);
-        return peekInterval;
-      };
-      const firstPeek = schedulePeek();
-      return () => clearTimeout(firstPeek);
-    } else {
-      setIsPurplePeeking(false);
+      const timer = setTimeout(() => {
+        setIsPurplePeeking(true);
+        setTimeout(() => setIsPurplePeeking(false), 800);
+      }, Math.random() * 3000 + 2000);
+      return () => clearTimeout(timer);
     }
+    setIsPurplePeeking(false);
   }, [formData.password, showPassword]);
 
-  const calculatePosition = (ref) => {
+  const calculatePosition = useCallback((ref) => {
     if (!ref.current) return { faceX: 0, faceY: 0, bodySkew: 0 };
     const rect = ref.current.getBoundingClientRect();
     const centerX = rect.left + rect.width / 2;
     const centerY = rect.top + rect.height / 3;
     const deltaX = mouseX - centerX;
     const deltaY = mouseY - centerY;
-    const faceX = Math.max(-15, Math.min(15, deltaX / 20));
-    const faceY = Math.max(-10, Math.min(10, deltaY / 30));
-    const bodySkew = Math.max(-6, Math.min(6, -deltaX / 120));
-    return { faceX, faceY, bodySkew };
-  };
+    return {
+      faceX: Math.max(-15, Math.min(15, deltaX / 20)),
+      faceY: Math.max(-10, Math.min(10, deltaY / 30)),
+      bodySkew: Math.max(-6, Math.min(6, -deltaX / 120)),
+    };
+  }, [mouseX, mouseY]);
 
   const purplePos = calculatePosition(purpleRef);
   const blackPos = calculatePosition(blackRef);
@@ -280,7 +272,7 @@ export default function Auth() {
         setLoading(false);
         return;
       }
-      if (!formData.country || formData.country === "") {
+      if (!formData.country) {
         setError("Por favor, selecciona tu país de residencia.");
         setLoading(false);
         return;
@@ -349,36 +341,38 @@ export default function Auth() {
 
   const hasPassword = formData.password.length > 0;
 
+  // Spinner SVG (evita motion.div infinito)
+  const Spinner = () => (
+    <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  );
+
   return (
     <div className="bg-background min-h-screen text-on-background relative flex flex-col lg:flex-row overflow-x-hidden">
       <Navbar />
 
-      {/* Left Content Section */}
+      {/* Left Content Section - Personajes animados */}
       <div className="relative hidden lg:flex flex-col justify-between bg-surface p-12 text-on-surface flex-1 overflow-hidden h-screen pt-24 sticky top-0">
-        
         <div className="relative z-20 flex flex-col h-full justify-start pt-8 xl:pt-16">
-          
           <div className="text-left mb-auto max-w-sm mx-auto w-full">
             <h2 className="text-5xl font-black mb-4 tracking-tight">{t('auth.left_title')}</h2>
             <p className="text-on-surface-variant text-lg">{t('auth.left_desc')}</p>
           </div>
 
           <div className="relative flex items-end justify-center h-[500px]">
-            {/* Cartoon Characters */}
             <div className="relative transform origin-bottom scale-[1.15] xl:scale-[1.35] transition-transform duration-500" style={{ width: '550px', height: '400px' }}>
-              {/* Purple tall rectangle character */}
+              {/* Purple */}
               <div 
                 ref={purpleRef}
                 className="absolute bottom-0 transition-all duration-700 ease-in-out"
                 style={{
-                  left: '70px',
-                  width: '180px',
+                  left: '70px', width: '180px',
                   height: (isTyping || (hasPassword && !showPassword)) ? '440px' : '400px',
-                  backgroundColor: '#6C3FF5',
-                  borderRadius: '10px 10px 0 0',
-                  zIndex: 1,
+                  backgroundColor: '#6C3FF5', borderRadius: '10px 10px 0 0', zIndex: 1,
                   transform: (hasPassword && showPassword)
-                    ? `skewX(0deg)`
+                    ? 'skewX(0deg)'
                     : (isTyping || (hasPassword && !showPassword))
                       ? `skewX(${(purplePos.bodySkew || 0) - 12}deg) translateX(40px)` 
                       : `skewX(${purplePos.bodySkew || 0}deg)`,
@@ -388,28 +382,24 @@ export default function Auth() {
                 <div 
                   className="absolute flex gap-8 transition-all duration-700 ease-in-out"
                   style={{
-                    left: (hasPassword && showPassword) ? `20px` : isLookingAtEachOther ? `55px` : `${45 + purplePos.faceX}px`,
-                    top: (hasPassword && showPassword) ? `35px` : isLookingAtEachOther ? `65px` : `${40 + purplePos.faceY}px`,
+                    left: (hasPassword && showPassword) ? '20px' : isLookingAtEachOther ? '55px' : `${45 + purplePos.faceX}px`,
+                    top: (hasPassword && showPassword) ? '35px' : isLookingAtEachOther ? '65px' : `${40 + purplePos.faceY}px`,
                   }}
                 >
-                  <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
-                  <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
+                  <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
+                  <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
                 </div>
               </div>
 
-              {/* Black tall rectangle character */}
+              {/* Black */}
               <div 
                 ref={blackRef}
                 className="absolute bottom-0 transition-all duration-700 ease-in-out"
                 style={{
-                  left: '240px',
-                  width: '120px',
-                  height: '310px',
-                  backgroundColor: '#2D2D2D',
-                  borderRadius: '8px 8px 0 0',
-                  zIndex: 2,
+                  left: '240px', width: '120px', height: '310px',
+                  backgroundColor: '#2D2D2D', borderRadius: '8px 8px 0 0', zIndex: 2,
                   transform: (hasPassword && showPassword)
-                    ? `skewX(0deg)`
+                    ? 'skewX(0deg)'
                     : isLookingAtEachOther
                       ? `skewX(${(blackPos.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
                       : (isTyping || (hasPassword && !showPassword))
@@ -421,79 +411,75 @@ export default function Auth() {
                 <div 
                   className="absolute flex gap-6 transition-all duration-700 ease-in-out"
                   style={{
-                    left: (hasPassword && showPassword) ? `10px` : isLookingAtEachOther ? `32px` : `${26 + blackPos.faceX}px`,
-                    top: (hasPassword && showPassword) ? `28px` : isLookingAtEachOther ? `12px` : `${32 + blackPos.faceY}px`,
+                    left: (hasPassword && showPassword) ? '10px' : isLookingAtEachOther ? '32px' : `${26 + blackPos.faceX}px`,
+                    top: (hasPassword && showPassword) ? '28px' : isLookingAtEachOther ? '12px' : `${32 + blackPos.faceY}px`,
                   }}
                 >
-                  <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
-                  <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
+                  <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
+                  <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
                 </div>
               </div>
 
-              {/* Orange semi-circle character */}
+              {/* Orange */}
               <div 
                 ref={orangeRef}
                 className="absolute bottom-0 transition-all duration-700 ease-in-out"
                 style={{
                   left: '0px', width: '240px', height: '200px', zIndex: 3,
                   backgroundColor: '#FF9B6B', borderRadius: '120px 120px 0 0',
-                  transform: (hasPassword && showPassword) ? `skewX(0deg)` : `skewX(${orangePos.bodySkew || 0}deg)`,
+                  transform: (hasPassword && showPassword) ? 'skewX(0deg)' : `skewX(${orangePos.bodySkew || 0}deg)`,
                   transformOrigin: 'bottom center',
                 }}
               >
                 <div 
                   className="absolute flex gap-8 transition-all duration-200 ease-out"
                   style={{
-                    left: (hasPassword && showPassword) ? `50px` : `${82 + (orangePos.faceX || 0)}px`,
-                    top: (hasPassword && showPassword) ? `85px` : `${90 + (orangePos.faceY || 0)}px`,
+                    left: (hasPassword && showPassword) ? '50px' : `${82 + (orangePos.faceX || 0)}px`,
+                    top: (hasPassword && showPassword) ? '85px' : `${90 + (orangePos.faceY || 0)}px`,
                   }}
                 >
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
                 </div>
               </div>
 
-              {/* Yellow tall rectangle character */}
+              {/* Yellow */}
               <div 
                 ref={yellowRef}
                 className="absolute bottom-0 transition-all duration-700 ease-in-out"
                 style={{
                   left: '310px', width: '140px', height: '230px', backgroundColor: '#E8D754',
                   borderRadius: '70px 70px 0 0', zIndex: 4,
-                  transform: (hasPassword && showPassword) ? `skewX(0deg)` : `skewX(${yellowPos.bodySkew || 0}deg)`,
+                  transform: (hasPassword && showPassword) ? 'skewX(0deg)' : `skewX(${yellowPos.bodySkew || 0}deg)`,
                   transformOrigin: 'bottom center',
                 }}
               >
                 <div 
                   className="absolute flex gap-6 transition-all duration-200 ease-out"
                   style={{
-                    left: (hasPassword && showPassword) ? `20px` : `${52 + (yellowPos.faceX || 0)}px`,
-                    top: (hasPassword && showPassword) ? `35px` : `${40 + (yellowPos.faceY || 0)}px`,
+                    left: (hasPassword && showPassword) ? '20px' : `${52 + (yellowPos.faceX || 0)}px`,
+                    top: (hasPassword && showPassword) ? '35px' : `${40 + (yellowPos.faceY || 0)}px`,
                   }}
                 >
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
                 </div>
                 <div 
                   className="absolute w-20 h-[4px] bg-[#2D2D2D] rounded-full transition-all duration-200 ease-out"
                   style={{
-                    left: (hasPassword && showPassword) ? `10px` : `${40 + (yellowPos.faceX || 0)}px`,
-                    top: (hasPassword && showPassword) ? `88px` : `${88 + (yellowPos.faceY || 0)}px`,
+                    left: (hasPassword && showPassword) ? '10px' : `${40 + (yellowPos.faceX || 0)}px`,
+                    top: (hasPassword && showPassword) ? '88px' : `${88 + (yellowPos.faceY || 0)}px`,
                   }}
                 />
               </div>
             </div>
           </div>
         </div>
-
-        {/* Background is now clean to match the right side */}
       </div>
 
       {/* Right Login Section */}
       <div className="flex-1 flex flex-col items-center px-6 md:px-12 lg:px-24 justify-center bg-surface h-screen overflow-y-auto custom-scrollbar pt-20 pb-12">
         <div className="w-full max-w-[520px] shrink-0">
-
-          {/* Header */}
           <div className="mb-10 text-center lg:text-left">
             <h1 className="text-3xl font-black tracking-tight mb-2 text-on-surface">
               {isLogin ? t('auth.login_title') : t('auth.register_title')}
@@ -502,10 +488,7 @@ export default function Auth() {
               {isLogin ? t('auth.no_account') : t('auth.have_account')}{' '}
               <button
                 type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError("");
-                }}
+                onClick={() => { setIsLogin(!isLogin); setError(""); }}
                 className="text-primary-container font-bold hover:text-primary transition-colors hover:underline focus:outline-none"
               >
                 {isLogin ? t('auth.switch_register') : t('auth.switch_login')}
@@ -524,19 +507,15 @@ export default function Auth() {
             </motion.div>
           )}
 
-          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            
             <AnimatePresence mode="wait">
               {!isLogin && (
                 <motion.div
                   key="register-fields"
                   initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                  animate={{
-                    opacity: 1, height: 'auto',
-                    transitionEnd: { overflow: 'visible' }
-                  }}
+                  animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
                   exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                  transition={{ duration: 0.3 }}
                   className="space-y-4"
                 >
                   <div className="grid grid-cols-2 gap-4">
@@ -544,24 +523,14 @@ export default function Auth() {
                       <label className={labelBaseClasses}>{t('auth.first_name')}</label>
                       <div className="relative">
                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">person</span>
-                        <input
-                          type="text" name="firstName" required={!isLogin}
-                          placeholder="John" className={inputBaseClasses}
-                          onChange={handleChange} value={formData.firstName}
-                          onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)}
-                        />
+                        <input type="text" name="firstName" required placeholder="John" className={inputBaseClasses} onChange={handleChange} value={formData.firstName} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
                       </div>
                     </div>
                     <div className="space-y-1">
                       <label className={labelBaseClasses}>{t('auth.last_name')}</label>
                       <div className="relative">
                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">person</span>
-                        <input
-                          type="text" name="lastName" required={!isLogin}
-                          placeholder="Doe" className={inputBaseClasses}
-                          onChange={handleChange} value={formData.lastName}
-                          onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)}
-                        />
+                        <input type="text" name="lastName" required placeholder="Doe" className={inputBaseClasses} onChange={handleChange} value={formData.lastName} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
                       </div>
                     </div>
                   </div>
@@ -571,50 +540,30 @@ export default function Auth() {
                       <label className={labelBaseClasses}>{t('auth.phone')}</label>
                       <div className="relative">
                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">call</span>
-                        <input
-                          type="tel" name="phone" required={!isLogin}
-                          placeholder="+1 234 567 890" className={inputBaseClasses}
-                          onChange={handleChange} value={formData.phone}
-                          onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)}
-                        />
+                        <input type="tel" name="phone" required placeholder="+1 234 567 890" className={inputBaseClasses} onChange={handleChange} value={formData.phone} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
                       </div>
                     </div>
 
                     <div className="space-y-1" ref={dropdownRef}>
                       <label className={labelBaseClasses}>{t('auth.country')}</label>
                       <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                          className={`${inputBaseClasses} flex justify-between items-center ${isCountryDropdownOpen ? 'border-primary-container bg-primary/10' : ''} ${!formData.country ? 'text-slate-500' : 'text-on-surface'}`}
-                        >
+                        <button type="button" onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                          className={`${inputBaseClasses} flex justify-between items-center ${isCountryDropdownOpen ? 'border-primary-container bg-primary/10' : ''} ${!formData.country ? 'text-slate-500' : 'text-on-surface'}`}>
                           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">public</span>
                           <span className="truncate pr-2">{selectedCountryName}</span>
-                          <span className="material-symbols-outlined text-on-surface-variant text-xl transition-transform duration-300" style={{ transform: isCountryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                            keyboard_arrow_down
-                          </span>
+                          <span className="material-symbols-outlined text-on-surface-variant text-xl transition-transform duration-300" style={{ transform: isCountryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>keyboard_arrow_down</span>
                         </button>
 
                         <AnimatePresence>
                           {isCountryDropdownOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                              transition={{ duration: 0.15 }}
-                              className="absolute z-50 w-full mt-2 bg-surface backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-xl overflow-hidden origin-top"
-                            >
+                            <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.15 }}
+                              className="absolute z-50 w-full mt-2 bg-surface backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-xl overflow-hidden origin-top">
                               <ul className="max-h-48 overflow-y-auto custom-scrollbar py-2">
                                 {countryList.map((country) => (
-                                  <li
-                                    key={country.code}
-                                    onClick={() => handleCountrySelect(country.code)}
-                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors duration-150 flex items-center justify-between ${formData.country === country.code ? 'bg-primary-container text-white font-bold' : 'text-on-surface hover:bg-primary-container/10'}`}
-                                  >
+                                  <li key={country.code} onClick={() => handleCountrySelect(country.code)}
+                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors duration-150 flex items-center justify-between ${formData.country === country.code ? 'bg-primary-container text-white font-bold' : 'text-on-surface hover:bg-primary-container/10'}`}>
                                     <span>{country.name}</span>
-                                    {formData.country === country.code && (
-                                      <span className="material-symbols-outlined text-lg">check</span>
-                                    )}
+                                    {formData.country === country.code && <span className="material-symbols-outlined text-lg">check</span>}
                                   </li>
                                 ))}
                               </ul>
@@ -632,12 +581,7 @@ export default function Auth() {
               <label className={labelBaseClasses}>{t('auth.email')}</label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">mail</span>
-                <input
-                  type="email" name="email" required
-                  placeholder="email@example.com" className={inputBaseClasses}
-                  onChange={handleChange} value={formData.email}
-                  onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)}
-                />
+                <input type="email" name="email" required placeholder="email@example.com" className={inputBaseClasses} onChange={handleChange} value={formData.email} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
               </div>
             </div>
 
@@ -645,17 +589,9 @@ export default function Auth() {
               <label className={labelBaseClasses}>{t('auth.password')}</label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">lock</span>
-                <input
-                  type={showPassword ? "text" : "password"} name="password" required
-                  placeholder="••••••••" className={inputBaseClasses}
-                  onChange={handleChange} value={formData.password}
-                  onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-on-surface transition-colors focus:outline-none"
-                >
+                <input type={showPassword ? "text" : "password"} name="password" required placeholder="••••••••" className={inputBaseClasses} onChange={handleChange} value={formData.password} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-on-surface transition-colors focus:outline-none">
                   <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
                 </button>
               </div>
@@ -663,42 +599,33 @@ export default function Auth() {
 
             <AnimatePresence mode="wait">
               {!isLogin && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-1 overflow-hidden"
-                >
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}
+                  className="space-y-1 overflow-hidden">
                   <label className={labelBaseClasses}>{t('auth.confirm_password')}</label>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">lock</span>
-                    <input
-                      type={showPassword ? "text" : "password"} name="confirmPassword" required={!isLogin}
-                      placeholder="••••••••" className={inputBaseClasses}
-                      onChange={handleChange} value={formData.confirmPassword}
-                      onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)}
-                    />
+                    <input type={showPassword ? "text" : "password"} name="confirmPassword" required placeholder="••••••••" className={inputBaseClasses} onChange={handleChange} value={formData.confirmPassword} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <motion.button
-              whileHover={{ scale: 1.01, translateY: -2 }}
-              whileTap={{ scale: 0.99 }}
+            {/* Botón submit OPTIMIZADO - CSS en vez de framer-motion */}
+            <button
               disabled={loading}
               type="submit"
-              className={`w-full h-[56px] rounded-xl font-black text-base shadow-lg transition-all duration-200 mt-6 flex items-center justify-center gap-3 ${loading ? 'bg-surface-variant text-on-surface-variant/50 cursor-not-allowed shadow-none' : 'bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-primary/20'}`}
+              className={`w-full h-[56px] rounded-xl font-black text-base shadow-lg transition-all duration-200 mt-6 flex items-center justify-center gap-3 active:scale-[0.98] hover:-translate-y-0.5
+                ${loading ? 'bg-surface-variant text-on-surface-variant/50 cursor-not-allowed shadow-none' : 'bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-primary/20'}`}
             >
               {loading ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="w-5 h-5 border-3 border-current/30 border-t-current rounded-full" />
+                <Spinner />
               ) : (
                 <>
                   <span className="material-symbols-outlined text-xl">{isLogin ? 'login' : 'person_add'}</span>
                   {isLogin ? t('auth.login_btn') : t('auth.register_btn')}
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
           {/* Social Login */}

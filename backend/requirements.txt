@@ -18,7 +18,7 @@ cryptography==46.0.5      # Requerido por PyMySQL para conexiones seguras
 passlib==1.7.4            # Hashing de contraseñas
 bcrypt==4.0.1             # Backend de encriptación bcrypt (versión compatible con passlib)
 python-jose==3.5.0        # Generación y validación de tokens JWT
-google-auth==2.38.0       # Integración con Google Login API
+google-auth==2.49.1       # Integración con Google Login API
 
 # --- Procesamiento de Documentos Word ---
 python-docx==1.2.0        # Leer y escribir archivos .docx
@@ -34,3 +34,4 @@ tenacity==9.1.4           # Reintentos con backoff exponencial (usado en apa_ai.
 pydantic==2.13.3          # Validación de datos y modelos de request/response
 requests==2.32.5          # Peticiones HTTP
 python-dateutil==2.9.0.post0 # Manejo de fechas para cálculo de tokens
+watchfiles==1.2.0

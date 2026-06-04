@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import api from '../api';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 const SUBSCRIPTION_PLANS = [
   { months: 1, price: 5, label: '1 Mes', pricePerMonth: '5.00', saving: null },
@@ -23,11 +24,11 @@ export default function Upgrade() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(null);
-  const [selectedTab, setSelectedTab] = useState('subscription'); // 'subscription' | 'packs'
+  const [selectedTab, setSelectedTab] = useState('subscription');
   const [userInfo, setUserInfo] = useState(null);
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, type: null, item: null });
-  const [binanceFlow, setBinanceFlow] = useState('select'); // 'select' | 'qr'
+  const [binanceFlow, setBinanceFlow] = useState('select');
   const [binanceOrderId, setBinanceOrderId] = useState('');
   const [binanceLoading, setBinanceLoading] = useState(false);
 
@@ -92,7 +93,6 @@ export default function Upgrade() {
         type: paymentModal.type,
         item_id: itemId
       });
-      // Actualizar plan localmente para que se refleje de inmediato
       if (paymentModal.type === 'subscription') {
         const userStr = localStorage.getItem('user');
         if (userStr) {
@@ -100,11 +100,10 @@ export default function Upgrade() {
             const userObj = JSON.parse(userStr);
             userObj.plan = 'pro';
             localStorage.setItem('user', JSON.stringify(userObj));
-            window.dispatchEvent(new Event('storage')); // Actualizar Navbar
+            window.dispatchEvent(new Event('storage'));
           } catch (e) {}
         }
       }
-
       toast.success(resp.data.message || 'Pago verificado exitosamente');
       closePaymentModal();
       navigate('/pago/exitoso?binance=true');
@@ -116,33 +115,35 @@ export default function Upgrade() {
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-  };
+  // Componente para el spinner de carga
+  const Spinner = ({ className = "w-4 h-4" }) => (
+    <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  );
 
   return (
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
 
-      {/* Ambient blobs - Hidden on mobile to improve performance */}
+      {/* Ambient blobs - ESTÁTICOS */}
       <div className="fixed inset-0 z-[-1] pointer-events-none hidden md:block">
-        <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 10, repeat: Infinity }}
-          className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-orange-100 rounded-full blur-[140px] opacity-70" />
-        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 14, repeat: Infinity }}
-          className="absolute bottom-[-10%] left-[-10%] w-[45%] h-[45%] bg-amber-50 rounded-full blur-[120px] opacity-80" />
+        <div className="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-orange-100 rounded-full blur-[140px] opacity-50" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[45%] h-[45%] bg-amber-50 rounded-full blur-[120px] opacity-60" />
       </div>
 
       <main className="pt-32 pb-24 px-6 max-w-5xl mx-auto">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
+        {/* Header - SIN parpadeo: animación directa sin variants */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }} 
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-12"
+        >
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 text-primary-container text-[11px] font-black uppercase tracking-widest mb-4">
             <span className="material-symbols-outlined text-sm">workspace_premium</span>
-            DocAI Pro
+            DocIA Pro
           </span>
           <h1 className="text-5xl font-black tracking-tight text-on-surface mb-4">
             {t('upgrade.title')}
@@ -152,9 +153,14 @@ export default function Upgrade() {
           </p>
         </motion.div>
 
-        {/* Tab Switcher - Visible for guests and PRO users, hidden for FREE users */}
+        {/* Tab Switcher */}
         {(!userInfo || userInfo.plan === 'pro') && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center mb-10">
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            className="flex justify-center mb-10"
+          >
             <div className="inline-flex bg-slate-100 dark:bg-surface-variant p-1 rounded-2xl border border-slate-200 dark:border-outline-variant/30">
               <button
                 onClick={() => setSelectedTab('subscription')}
@@ -172,13 +178,17 @@ export default function Upgrade() {
           </motion.div>
         )}
 
-        {/* Subscription Plans */}
+        {/* Subscription Plans - SIN parpadeo: animate directo en cada tarjeta */}
         {selectedTab === 'subscription' && (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+          <div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-              {SUBSCRIPTION_PLANS.map((plan) => (
-                <motion.div key={plan.months} variants={itemVariants} whileHover={{ y: -6 }}
-                  className={`relative bg-white dark:bg-surface rounded-card border-2 p-6 flex flex-col shadow-sm transition-all
+              {SUBSCRIPTION_PLANS.map((plan, index) => (
+                <motion.div 
+                  key={plan.months}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  className={`relative bg-white dark:bg-surface rounded-card border-2 p-6 flex flex-col shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-container hover:shadow-lg hover:shadow-orange-100 dark:hover:shadow-orange-900/10
                     ${plan.popular ? 'border-primary-container shadow-xl shadow-orange-100 dark:shadow-orange-900/20' : 'border-slate-200 dark:border-outline-variant/30'}`}
                 >
                   {plan.popular && (
@@ -210,22 +220,20 @@ export default function Upgrade() {
                     </li>
                   </ul>
 
-                  <motion.button
-                    whileTap={{ scale: 0.96 }}
+                  <button
                     onClick={() => openPaymentModal('subscription', plan)}
                     disabled={loading === `sub-${plan.months}`}
-                    className={`w-full py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2
+                    className={`w-full py-3 rounded-xl font-black text-sm transition-all active:scale-95 flex items-center justify-center gap-2
                       ${plan.popular
                         ? 'bg-primary-container text-white shadow-lg shadow-orange-200 dark:shadow-orange-900/20 hover:opacity-90'
                         : 'bg-surface-variant/20 dark:bg-surface-variant text-on-surface border border-outline/10 dark:border-outline-variant/30 hover:bg-surface-variant/30 dark:hover:bg-surface-container-high'}`}
                   >
                     {loading === `sub-${plan.months}` ? (
-                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                        className="w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                      <Spinner />
                     ) : (
                       <><span className="material-symbols-outlined text-sm">credit_card</span> {t('upgrade.btn_subscribe')}</>
                     )}
-                  </motion.button>
+                  </button>
                 </motion.div>
               ))}
             </div>
@@ -241,12 +249,12 @@ export default function Upgrade() {
                 {t('upgrade.secure_binance')}
               </div>
             </div>
-          </motion.div>
+          </div>
         )}
 
-        {/* Token Packs */}
+        {/* Token Packs - SIN parpadeo: animate directo en cada tarjeta */}
         {selectedTab === 'packs' && (
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+          <div>
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-2xl p-4 mb-8 flex items-center gap-3">
               <span className="material-symbols-outlined text-amber-600 dark:text-amber-500">info</span>
               <p className="text-sm text-amber-800 dark:text-amber-500 font-medium">
@@ -255,9 +263,13 @@ export default function Upgrade() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {TOKEN_PACKS.map((pack) => (
-                <motion.div key={pack.id} variants={itemVariants} whileHover={{ y: -6 }}
-                  className={`relative bg-white dark:bg-surface rounded-card border-2 p-8 flex flex-col items-center text-center shadow-sm transition-all
+              {TOKEN_PACKS.map((pack, index) => (
+                <motion.div 
+                  key={pack.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  className={`relative bg-white dark:bg-surface rounded-card border-2 p-8 flex flex-col items-center text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary-container hover:shadow-lg hover:shadow-orange-100 dark:hover:shadow-orange-900/10
                     ${pack.popular ? 'border-primary-container shadow-xl shadow-orange-100 dark:shadow-orange-900/20' : 'border-slate-200 dark:border-outline-variant/30'}`}
                 >
                   {pack.popular && (
@@ -270,35 +282,39 @@ export default function Upgrade() {
                   </div>
                   <h3 className="text-xl font-black text-on-surface mb-1">{pack.name}</h3>
                   <div className="text-4xl font-black text-on-surface my-3">${pack.price}</div>
-                  <div className="text-sm font-bold text-primary-container mb-6">+{pack.tokens} tokens DocAI</div>
+                  <div className="text-sm font-bold text-primary-container mb-6">+{pack.tokens} tokens DocIA</div>
 
-                  <motion.button
-                    whileTap={{ scale: 0.96 }}
+                  <button
                     onClick={() => openPaymentModal('pack', pack)}
                     disabled={loading === `pack-${pack.id}`}
-                    className={`w-full py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2
+                    className={`w-full py-3 rounded-xl font-black text-sm transition-all active:scale-95 flex items-center justify-center gap-2
                       ${pack.popular
                         ? 'bg-primary-container text-white shadow-lg shadow-orange-200 dark:shadow-orange-900/20 hover:opacity-90'
                         : 'bg-slate-50 dark:bg-surface-variant text-on-surface border border-slate-200 dark:border-outline-variant/30 hover:bg-slate-100 dark:hover:bg-surface-container-high'}`}
                   >
                     {loading === `pack-${pack.id}` ? (
-                      <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                        className="w-4 h-4 border-2 border-current border-t-transparent rounded-full" />
+                      <Spinner />
                     ) : (
                       <><span className="material-symbols-outlined text-sm">shopping_cart</span> {t('upgrade.btn_buy')}</>
                     )}
-                  </motion.button>
+                  </button>
                 </motion.div>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
       </main>
 
       {/* PAYMENT MODAL */}
       {paymentModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-surface w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={closePaymentModal}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-surface w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+          >
             <div className="flex justify-between items-center p-5 border-b border-outline/10 dark:border-outline-variant/20">
               <h3 className="text-xl font-bold text-on-surface">{paymentModal.type === 'subscription' ? t('upgrade.pay_sub') : t('upgrade.pay_pack')}</h3>
               <button onClick={closePaymentModal} className="text-on-surface-variant hover:text-on-surface">
@@ -314,7 +330,7 @@ export default function Upgrade() {
                   <button onClick={() => {
                     if (paymentModal.type === 'subscription') handleSubscribe(paymentModal.item.months);
                     else handleBuyPack(paymentModal.item.id);
-                  }} className="w-full py-4 rounded-xl font-bold bg-[#003087] text-white flex items-center justify-center gap-3 hover:bg-[#002266] transition-colors">
+                  }} className="w-full py-4 rounded-xl font-bold bg-[#003087] text-white flex items-center justify-center gap-3 hover:bg-[#002266] transition-colors active:scale-[0.98]">
                     <span className="material-symbols-outlined">payments</span>
                     {t('upgrade.pay_paypal')}
                   </button>
@@ -325,7 +341,7 @@ export default function Upgrade() {
                     <div className="flex-grow border-t border-outline/20"></div>
                   </div>
 
-                  <button onClick={() => setBinanceFlow('qr')} className="w-full py-4 rounded-xl font-bold bg-[#FCD535] text-[#1E2329] flex items-center justify-center gap-3 hover:bg-[#F3BA2F] transition-colors">
+                  <button onClick={() => setBinanceFlow('qr')} className="w-full py-4 rounded-xl font-bold bg-[#FCD535] text-[#1E2329] flex items-center justify-center gap-3 hover:bg-[#F3BA2F] transition-colors active:scale-[0.98]">
                     <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" className="w-5 h-5" alt="BNB" />
                     {t('upgrade.pay_binance')}
                   </button>
@@ -353,10 +369,10 @@ export default function Upgrade() {
                     <button 
                       onClick={handleVerifyBinance}
                       disabled={binanceLoading}
-                      className="w-full py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary-container hover:text-on-primary-container transition-all flex justify-center items-center gap-2"
+                      className="w-full py-3 rounded-xl font-bold text-white bg-primary hover:bg-primary-container hover:text-on-primary-container transition-all active:scale-[0.98] flex justify-center items-center gap-2"
                     >
                       {binanceLoading ? (
-                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
+                        <Spinner className="w-5 h-5" />
                       ) : t('upgrade.verify_payment')}
                     </button>
                     <button onClick={() => setBinanceFlow('select')} className="w-full py-3 mt-2 text-sm font-bold text-on-surface-variant hover:text-on-surface">
@@ -369,6 +385,8 @@ export default function Upgrade() {
           </motion.div>
         </div>
       )}
+
+      <Footer />
 
     </div>
   );

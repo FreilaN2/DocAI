@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 export default function Landing() {
   const { t } = useTranslation();
@@ -26,35 +27,32 @@ export default function Landing() {
     }
   }, [navigate]);
 
+  // Animaciones solo para entrada inicial (una sola vez)
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.2 }
+      transition: { staggerChildren: 0.15, delayChildren: 0.1 }
     }
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { duration: 0.5, ease: "easeOut" } 
+    }
   };
 
   return (
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
       
-      {/* Ambient Background Elements with Animation - Hidden on mobile */}
+      {/* Ambient Background - ESTÁTICO (sin animaciones infinitas) */}
       <div className="fixed inset-0 z-[-1] pointer-events-none hidden md:block">
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], x: [0, 20, 0], y: [0, -20, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-surface-container-high rounded-full blur-[100px] opacity-60"
-        />
-        <motion.div 
-          animate={{ scale: [1, 1.2, 1], x: [0, -30, 0], y: [0, 30, 0] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[20%] right-[-5%] w-[30%] h-[50%] bg-surface-container-low rounded-full blur-[120px] opacity-80"
-        />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-surface-container-high rounded-full blur-[100px] opacity-40" />
+        <div className="absolute top-[20%] right-[-5%] w-[30%] h-[50%] bg-surface-container-low rounded-full blur-[120px] opacity-50" />
       </div>
 
       <motion.main 
@@ -80,10 +78,16 @@ export default function Landing() {
           </motion.p>
           
           <motion.div variants={itemVariants} className="flex flex-col md:flex-row items-center gap-4 mt-8">
-            <Link to="/upgrade" className="bg-primary-container text-white font-bold px-8 py-4 rounded-btn shadow-[0_4px_14px_0_rgba(255,107,0,0.39)] hover:shadow-[0_6px_20px_rgba(255,107,0,0.23)] hover:-translate-y-1 transition-all duration-200 active:scale-95 no-underline">
+            <Link 
+              to="/upgrade" 
+              className="bg-primary-container text-white font-bold px-8 py-4 rounded-btn shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-200 active:scale-95 no-underline"
+            >
               {t('landing.cta_pro')}
             </Link>
-            <Link to="/editor/free" className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg text-on-surface font-bold px-8 py-4 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-all duration-200 active:scale-95 no-underline">
+            <Link 
+              to="/editor/free" 
+              className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-lg text-on-surface font-bold px-8 py-4 rounded-btn border border-outline dark:border-outline-variant/30 hover:bg-surface-container-low dark:hover:bg-surface-container-high hover:-translate-y-1 transition-all duration-200 active:scale-95 no-underline"
+            >
               {t('landing.cta_free')}
             </Link>
           </motion.div>
@@ -133,7 +137,11 @@ export default function Landing() {
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+            {/* Feature 1 */}
+            <motion.div 
+              variants={itemVariants} 
+              className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6 hover:-translate-y-1 transition-transform duration-200"
+            >
               <div className="w-14 h-14 shrink-0 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-3xl">my_location</span>
               </div>
@@ -143,7 +151,11 @@ export default function Landing() {
               </div>
             </motion.div>
 
-            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+            {/* Feature 2 */}
+            <motion.div 
+              variants={itemVariants} 
+              className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6 hover:-translate-y-1 transition-transform duration-200"
+            >
               <div className="w-14 h-14 shrink-0 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-3xl">timer</span>
               </div>
@@ -153,7 +165,11 @@ export default function Landing() {
               </div>
             </motion.div>
 
-            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+            {/* Feature 3 */}
+            <motion.div 
+              variants={itemVariants} 
+              className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6 hover:-translate-y-1 transition-transform duration-200"
+            >
               <div className="w-14 h-14 shrink-0 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                 <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-3xl">shield_lock</span>
               </div>
@@ -163,7 +179,11 @@ export default function Landing() {
               </div>
             </motion.div>
 
-            <motion.div variants={itemVariants} whileHover={{ y: -5 }} className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6">
+            {/* Feature 4 */}
+            <motion.div 
+              variants={itemVariants} 
+              className="bg-white/50 dark:bg-[#1a1512]/50 backdrop-blur-md p-8 rounded-3xl border border-slate-200 dark:border-outline-variant/20 shadow-sm flex gap-6 hover:-translate-y-1 transition-transform duration-200"
+            >
               <div className="w-14 h-14 shrink-0 rounded-2xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
                 <span className="material-symbols-outlined text-orange-600 dark:text-orange-400 text-3xl">format_list_numbered</span>
               </div>
@@ -186,8 +206,7 @@ export default function Landing() {
             {/* Free Card */}
             <motion.div 
               variants={itemVariants}
-              whileHover={{ y: -5 }}
-              className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-[20px] rounded-card border border-slate-200 dark:border-outline-variant/30 p-8 flex flex-col shadow-sm relative z-10"
+              className="bg-white/70 dark:bg-[#1a1512]/70 backdrop-blur-[20px] rounded-card border border-slate-200 dark:border-outline-variant/30 p-8 flex flex-col shadow-sm relative z-10 hover:-translate-y-1 transition-transform duration-200"
             >
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-on-surface">{t('landing.plan_starter')}</h3>
@@ -216,8 +235,7 @@ export default function Landing() {
             {/* Pro Card */}
             <motion.div 
               variants={itemVariants}
-              whileHover={{ y: -10 }}
-              className="bg-white/90 dark:bg-[#1a1512]/90 backdrop-blur-[24px] rounded-card border-2 border-primary-container p-8 flex flex-col shadow-xl relative z-20 transform md:-translate-y-4"
+              className="bg-white/90 dark:bg-[#1a1512]/90 backdrop-blur-[24px] rounded-card border-2 border-primary-container p-8 flex flex-col shadow-xl relative z-20 transform md:-translate-y-4 hover:-translate-y-5 transition-transform duration-200"
             >
               <div className="absolute -top-4 right-8 bg-primary-container text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-md">
                 {t('landing.most_popular')}
@@ -251,7 +269,7 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* FAQ Section */}
+        {/* FAQ Section - OPTIMIZADO sin animación de height */}
         <section className="max-w-3xl mx-auto w-full mt-32 mb-16 px-4">
           <motion.div variants={itemVariants} className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-on-surface">{t('landing.faq_title')}</h2>
@@ -267,28 +285,22 @@ export default function Landing() {
               >
                 <button 
                   onClick={() => toggleFaq(num)}
-                  className="w-full px-6 py-5 flex items-center justify-between text-left focus:outline-none"
+                  className="w-full px-6 py-5 flex items-center justify-between text-left focus:outline-none hover:bg-surface-container-low/50 transition-colors"
                 >
                   <span className="font-bold text-on-surface text-lg">{t(`landing.faq${num}_q`)}</span>
-                  <motion.span 
-                    animate={{ rotate: openFaq === num ? 180 : 0 }} 
-                    className="material-symbols-outlined text-on-surface-variant"
+                  <span 
+                    className={`material-symbols-outlined text-on-surface-variant transition-transform duration-200 ${openFaq === num ? 'rotate-180' : ''}`}
                   >
                     expand_more
-                  </motion.span>
+                  </span>
                 </button>
-                <AnimatePresence>
-                  {openFaq === num && (
-                    <motion.div 
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="px-6 pb-5"
-                    >
-                      <p className="text-on-surface-variant leading-relaxed">{t(`landing.faq${num}_a`)}</p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <div 
+                  className={`grid transition-all duration-200 ease-in-out ${openFaq === num ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+                >
+                  <div className="overflow-hidden">
+                    <p className="px-6 pb-5 text-on-surface-variant leading-relaxed">{t(`landing.faq${num}_a`)}</p>
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -296,12 +308,7 @@ export default function Landing() {
 
       </motion.main>
       
-      <footer className="w-full py-12 bg-white dark:bg-[#110e0c] border-t border-slate-100 dark:border-outline-variant/30 text-xs text-slate-500 dark:text-on-surface-variant transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="font-bold text-slate-900 dark:text-on-surface text-sm">DocIA</div>
-          <div>© {new Date().getFullYear()} DocIA. Precision academic formatting powered by AI.</div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

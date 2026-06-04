@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 export default function Support() {
   const { t } = useTranslation();
@@ -63,6 +64,7 @@ export default function Support() {
           </form>
         </motion.div>
       </main>
+      <Footer />
     </div>
   );
 }

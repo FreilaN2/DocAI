@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
 
 export default function Tools() {
   const { t } = useTranslation();
@@ -21,13 +22,10 @@ export default function Tools() {
             <div className="w-24 h-24 sm:w-32 sm:h-32 bg-primary-container/10 dark:bg-primary-container/20 rounded-full flex items-center justify-center mx-auto">
               <span className="material-symbols-outlined text-6xl sm:text-8xl text-primary-container">construction</span>
             </div>
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
-              className="absolute -right-2 -bottom-2 w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-surface-variant rounded-full flex items-center justify-center shadow-lg border border-slate-100 dark:border-outline-variant/30"
-            >
+            {/* Icono de settings ESTÁTICO - sin animación infinita */}
+            <div className="absolute -right-2 -bottom-2 w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-surface-variant rounded-full flex items-center justify-center shadow-lg border border-slate-100 dark:border-outline-variant/30">
               <span className="material-symbols-outlined text-xl sm:text-2xl text-orange-500">settings</span>
-            </motion.div>
+            </div>
           </div>
 
           <h1 className="text-5xl sm:text-6xl font-black text-on-surface mb-6 tracking-tight">
@@ -36,7 +34,6 @@ export default function Tools() {
           <p className="text-on-surface-variant text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
             {t('tools_page.subtitle')}
           </p>
-          
 
         </motion.div>
       </main>

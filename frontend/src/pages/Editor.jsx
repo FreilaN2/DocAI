@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import PlanBadge from '../components/PlanBadge';
 import ParagraphCard from '../components/ParagraphCard';
+import Footer from '../components/Footer';
 
 export default function Editor() {
   const { plan } = useParams();
@@ -28,26 +29,33 @@ export default function Editor() {
       setFuente("Times New Roman");
     }
   }, [edicion, fuente]);
+  
   const [downloadFormat, setDownloadFormat] = useState('docx');
   const [isDragging, setIsDragging] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(null);
-  // Estado de progreso SSE
   const [progreso, setProgreso] = useState(0);
   const [loteActual, setLoteActual] = useState(0);
   const [totalLotes, setTotalLotes] = useState(0);
   const [tiempoRestante, setTiempoRestante] = useState(null);
   const [modeloUsado, setModeloUsado] = useState('');
   const [errorProceso, setErrorProceso] = useState(null);
-  const esRef = React.useRef(null); // referencia al EventSource activo
+  const esRef = useRef(null);
 
   const token = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
   const isPro = plan === 'pro';
 
+  // Spinner SVG optimizado
+  const Spinner = ({ className = "w-6 h-6" }) => (
+    <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  );
+
   // ── Guardia de Ruta y Gestión de Tokens ─────────────────────────
   useEffect(() => {
     if (isPro) {
-      // Intentando entrar a Pro
       if (!token || !storedUser) {
         navigate('/login', { replace: true });
         return;
@@ -59,14 +67,12 @@ export default function Editor() {
       }
     }
 
-    // Cargar saldo si el usuario es Pro (sin importar en qué editor esté)
     if (token && storedUser) {
       try {
         const userData = JSON.parse(storedUser);
         if (userData.plan === 'pro') {
           api.get('/tokens/balance').then(r => {
             setTokenBalance(r.data);
-            // Si intenta usar la herramienta Free pero aún tiene tokens, lo enviamos a Pro
             if (!isPro && r.data.total > 0) {
               navigate('/editor/pro', { replace: true });
             }
@@ -75,7 +81,6 @@ export default function Editor() {
       } catch (e) { }
     }
 
-    // Restaurar estado si el usuario viene de registrarse
     const pendingResult = sessionStorage.getItem('docai_pending_result');
     if (pendingResult) {
       if (storedUser) {
@@ -97,10 +102,8 @@ export default function Editor() {
       setResult(JSON.parse(pendingResult));
       const savedFormat = sessionStorage.getItem('docai_pending_format');
       if (savedFormat) setDownloadFormat(savedFormat);
-
       const savedToc = sessionStorage.getItem('docai_pending_toc');
       if (savedToc) setIncludeTOC(savedToc === 'true');
-
       sessionStorage.removeItem('docai_pending_result');
       sessionStorage.removeItem('docai_pending_format');
       sessionStorage.removeItem('docai_pending_toc');
@@ -152,7 +155,6 @@ export default function Editor() {
     setErrorProceso(null);
 
     try {
-      // ── Paso 1: Subir el archivo ───────────────────────────────────────
       const formData = new FormData();
       const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
       const safeFile = new File([file], safeName, { type: file.type });
@@ -160,7 +162,6 @@ export default function Editor() {
       const uploadResp = await api.post('/upload-documento/', formData);
       const { upload_id } = uploadResp.data;
 
-      // ── Paso 2: Conectar SSE para procesar ────────────────────────────
       const baseURL = api.defaults.baseURL || '';
       const sseUrl = `${baseURL}/procesar-apa/stream?upload_id=${upload_id}&edicion=${edicion}&plan=${plan}&token=${token}`;
 
@@ -174,14 +175,12 @@ export default function Editor() {
           setTotalLotes(evento.total_lotes);
           setModeloUsado(evento.modelo || '');
         }
-
         if (evento.tipo === 'lote') {
           setProgreso(evento.progreso);
           setLoteActual(evento.lote);
           setTotalLotes(evento.total_lotes);
           setTiempoRestante(evento.tiempo_estimado);
         }
-
         if (evento.tipo === 'finalizado') {
           setProgreso(100);
           setResult({
@@ -191,12 +190,10 @@ export default function Editor() {
           es.close();
           esRef.current = null;
           setLoading(false);
-          // Actualizar saldo tras análisis
           if (isPro && token) {
             api.get('/tokens/balance').then(r => setTokenBalance(r.data)).catch(() => { });
           }
         }
-
         if (evento.tipo === 'error') {
           setErrorProceso(evento.mensaje || 'Error desconocido en el procesamiento.');
           es.close();
@@ -237,10 +234,7 @@ export default function Editor() {
       sessionStorage.setItem('docai_pending_format', downloadFormat);
       sessionStorage.setItem('docai_pending_toc', includeTOC.toString());
       sessionStorage.setItem('docai_auto_download', 'true');
-      toast(t('editor.login_to_download'), {
-        icon: '🔒',
-        duration: 5000,
-      });
+      toast(t('editor.login_to_download'), { icon: '🔒', duration: 5000 });
       navigate('/register');
       return;
     }
@@ -249,8 +243,7 @@ export default function Editor() {
     try {
       const savedFilename = sessionStorage.getItem('docai_pending_filename');
       const payload = {
-        edicion,
-        fuente,
+        edicion, fuente,
         filename: file ? file.name : (savedFilename || 'documento_docai.docx'),
         plan,
         parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
@@ -266,7 +259,6 @@ export default function Editor() {
     }
   };
 
-  // Calcular porcentaje de tokens restantes (máximo: 500 tokens Pro)
   const TOKEN_MAX_PRO = 500;
   const tokenPercent = tokenBalance
     ? Math.round(((tokenBalance.monthly_tokens + tokenBalance.extra_tokens) / TOKEN_MAX_PRO) * 100)
@@ -278,22 +270,20 @@ export default function Editor() {
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
 
-      {/* Ambient Background */}
+      {/* Ambient Background - ESTÁTICO */}
       <div className="fixed inset-0 z-[-1] pointer-events-none">
-        <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.4, 0.3] }} transition={{ duration: 8, repeat: Infinity }}
-          className="absolute top-[-5%] right-[-5%] w-[30%] h-[30%] bg-surface-container-high rounded-full blur-[120px]" />
-        <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.3, 0.2] }} transition={{ duration: 12, repeat: Infinity }}
-          className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-surface-variant rounded-full blur-[100px]" />
+        <div className="absolute top-[-5%] right-[-5%] w-[30%] h-[30%] bg-surface-container-high rounded-full blur-[120px] opacity-40" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-surface-variant rounded-full blur-[100px] opacity-30" />
       </div>
 
       <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto flex flex-col gap-8">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center justify-center sm:justify-end mb-4">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="flex items-center justify-center sm:justify-end mb-4">
           <PlanBadge plan={plan} />
         </motion.div>
 
-        {/* Token Balance Bar — Solo usuarios Pro logueados */}
+        {/* Token Balance Bar */}
         {isPro && tokenBalance && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
             className="bg-white/80 dark:bg-[#1a1512]/80 backdrop-blur-lg rounded-2xl border border-slate-200 dark:border-outline-variant/30 p-4 shadow-sm"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-2">
@@ -328,7 +318,7 @@ export default function Editor() {
 
         {/* Banner sin tokens */}
         {noTokensForPro && (
-          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}
+          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}
             className="bg-orange-50 dark:bg-surface-container-high border-2 border-primary-container/30 rounded-2xl p-5 flex items-center gap-4"
           >
             <span className="material-symbols-outlined text-primary-container text-3xl">warning</span>
@@ -344,7 +334,7 @@ export default function Editor() {
 
         <AnimatePresence mode="wait">
           {!result ? (
-            <motion.section key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="w-full">
+            <motion.section key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="w-full">
               <div className="text-center mb-10">
                 <h1 className="text-4xl font-black tracking-tight text-on-surface mb-2">{t('editor.upload_title')}</h1>
                 <p className="text-on-surface-variant">{t('editor.upload_subtitle')}</p>
@@ -355,8 +345,7 @@ export default function Editor() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('editor.style')}</label>
                     <select value={edicion} onChange={(e) => setEdicion(e.target.value)}
-                      className="w-full p-4 bg-white dark:bg-surface border border-slate-200 dark:border-outline-variant/30 rounded-2xl focus:ring-4 focus:ring-orange-100 dark:focus:ring-primary/20 outline-none text-sm font-bold transition-all cursor-pointer"
-                    >
+                      className="w-full p-4 bg-white dark:bg-surface border border-slate-200 dark:border-outline-variant/30 rounded-2xl focus:ring-4 focus:ring-orange-100 dark:focus:ring-primary/20 outline-none text-sm font-bold transition-all cursor-pointer">
                       <option value="6ta">{t('editor.apa_6th')}</option>
                       <option value="7ma">{t('editor.apa_7th')}</option>
                     </select>
@@ -365,8 +354,7 @@ export default function Editor() {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{t('editor.font')}</label>
                     <select value={fuente} onChange={(e) => setFuente(e.target.value)}
                       className="w-full p-4 bg-white dark:bg-surface border border-slate-200 dark:border-outline-variant/30 rounded-2xl focus:ring-4 focus:ring-orange-100 dark:focus:ring-primary/20 outline-none text-sm font-bold transition-all cursor-pointer"
-                      disabled={edicion === "6ta"}
-                    >
+                      disabled={edicion === "6ta"}>
                       {fuenteOpciones.map((fontOption) => (
                         <option key={fontOption} value={fontOption}>{fontOption}</option>
                       ))}
@@ -380,16 +368,14 @@ export default function Editor() {
                   </div>
                 </div>
 
-                <motion.label
+                {/* Dropzone - CSS en vez de motion.label */}
+                <label
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  className={`relative border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center gap-4 bg-surface-bright/50 transition-all duration-300 cursor-pointer
+                  className={`relative border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center gap-4 bg-surface-bright/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] active:scale-[0.99]
                     ${isDragging ? 'border-primary-container bg-orange-100/40 scale-[1.02] shadow-lg shadow-orange-100' : 'border-outline-variant'}
-                    ${file ? 'border-primary-container bg-orange-50/30' : 'hover:border-primary-container hover:bg-surface-container-low'}
-                  `}
+                    ${file ? 'border-primary-container bg-orange-50/30' : 'hover:border-primary-container hover:bg-surface-container-low'}`}
                 >
                   <input type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
                   <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${isDragging || file ? 'bg-primary-container text-white' : 'bg-surface-container text-primary-container'}`}>
@@ -401,76 +387,49 @@ export default function Editor() {
                     {isDragging ? t('editor.drop_here') : (file ? file.name : t('editor.select_file'))}
                   </h3>
                   {!file && !isDragging && <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">{t('editor.drag_drop')}</p>}
-                </motion.label>
+                </label>
 
-                {/* Botón de análisis / Barra de progreso SSE */}
+                {/* Barra de progreso */}
                 {loading ? (
                   <div className="mt-8 space-y-3">
-                    {/* Cabecera de progreso */}
                     <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-on-surface-variant px-1">
                       <span className="flex items-center gap-1.5">
-                        <motion.span
-                          animate={{ opacity: [1, 0.4, 1] }}
-                          transition={{ repeat: Infinity, duration: 1.2 }}
-                          className="w-2 h-2 rounded-full bg-primary-container inline-block"
-                        />
-                        {totalLotes > 0
-                          ? `Lote ${loteActual} de ${totalLotes}`
-                          : 'Preparando análisis...'}
+                        <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse inline-block" />
+                        {totalLotes > 0 ? `Lote ${loteActual} de ${totalLotes}` : 'Preparando análisis...'}
                       </span>
                       <span className="text-primary-container font-black">{progreso}%</span>
                     </div>
-
-                    {/* Barra de progreso animada */}
                     <div className="w-full bg-slate-100 dark:bg-surface-variant rounded-full h-3 overflow-hidden">
-                      <motion.div
-                        animate={{ width: `${progreso}%` }}
-                        transition={{ duration: 0.6, ease: 'easeOut' }}
-                        className="h-3 rounded-full bg-gradient-to-r from-orange-400 to-primary-container relative"
+                      <div
+                        className="h-3 rounded-full bg-gradient-to-r from-orange-400 to-primary-container relative transition-all duration-500 ease-out"
+                        style={{ width: `${progreso}%` }}
                       >
-                        {/* Brillo deslizante */}
-                        <motion.div
-                          animate={{ x: ['-100%', '200%'] }}
-                          transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                          className="absolute inset-0 bg-white/30 skew-x-12"
-                        />
-                      </motion.div>
+                        <div className="absolute inset-0 bg-white/30 skew-x-12 animate-shimmer" />
+                      </div>
                     </div>
-
-                    {/* Info extra */}
                     <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold px-1">
                       <span>
-                        {modeloUsado.includes('scout')
-                          ? '🚀 Modelo Avanzado (Scout 17B)'
-                          : modeloUsado.includes('70b')
-                            ? '⚡ Modelo Estándar (70B)'
-                            : '🔧 Motor de reglas'}
+                        {modeloUsado.includes('scout') ? '🚀 Modelo Avanzado' : modeloUsado.includes('70b') ? '⚡ Modelo Estándar' : '🔧 Motor de reglas'}
                       </span>
-                      {tiempoRestante !== null && tiempoRestante > 0 && (
-                        <span>~{tiempoRestante}s restantes</span>
-                      )}
+                      {tiempoRestante !== null && tiempoRestante > 0 && <span>~{tiempoRestante}s restantes</span>}
                     </div>
                   </div>
                 ) : (
                   <>
                     {errorProceso && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-2"
-                      >
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
                         <span className="material-symbols-outlined text-sm">error</span>
                         {errorProceso}
                       </motion.div>
                     )}
                     <button
-                      id="btn-analizar-documento"
                       onClick={handleUpload}
                       disabled={!file || noTokensForPro}
                       className={`w-full mt-8 py-5 rounded-2xl font-black text-white shadow-lg transition-all flex items-center justify-center gap-3 active:scale-95
                         ${!file || noTokensForPro
                           ? 'bg-slate-200 dark:bg-surface-variant text-slate-400 dark:text-on-surface-variant/50 cursor-not-allowed shadow-none'
-                          : 'bg-primary-container shadow-primary-container/20'}`}
+                          : 'bg-primary-container shadow-primary-container/20 hover:opacity-90'}`}
                     >
                       <span className="material-symbols-outlined">auto_fix_high</span>
                       {t('editor.analyze')}
@@ -480,7 +439,7 @@ export default function Editor() {
               </div>
             </motion.section>
           ) : (
-            <motion.section key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full">
+            <motion.section key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="w-full">
               <div className="bg-surface/80 dark:bg-surface/90 backdrop-blur-xl rounded-card border border-outline-variant/10 p-8 shadow-xl">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                   <div>
@@ -489,18 +448,19 @@ export default function Editor() {
                   </div>
                 </div>
 
+                {/* Lista de párrafos - SIN motion.div individuales para evitar cientos de animaciones */}
                 <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 mb-8">
-                  {result.detalles?.map((item, index) => (
-                    <motion.div key={item.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }}>
+                  {result.detalles?.map((item) => (
+                    <div key={item.id}>
                       <ParagraphCard item={item} onLabelChange={handleLabelChange} />
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
 
+                {/* Opciones de descarga */}
                 <div className={`flex flex-col gap-3 mb-8 p-5 rounded-2xl border transition-all ${isPro
                     ? 'bg-white/50 dark:bg-[#1a1512]/50 border-slate-200 dark:border-outline-variant/30'
-                    : 'bg-white/30 dark:bg-[#1a1512]/50 border-slate-200/60 dark:border-outline-variant/20'
-                  }`}>
+                    : 'bg-white/30 dark:bg-[#1a1512]/50 border-slate-200/60 dark:border-outline-variant/20'}`}>
                   <div className={`flex items-center gap-4 ${!isPro ? 'opacity-50' : ''}`}>
                     <input type="checkbox" id="toc-toggle" checked={includeTOC} onChange={(e) => setIncludeTOC(e.target.checked)}
                       className="w-6 h-6 accent-primary-container" disabled={!isPro}
@@ -517,29 +477,15 @@ export default function Editor() {
 
                   <div className={`grid grid-cols-2 gap-3 pt-2 ${!isPro ? 'opacity-60' : ''}`}>
                     <label className="flex items-center gap-2 p-3 rounded-2xl border border-slate-200 dark:border-outline-variant/30 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="download-format"
-                        value="docx"
-                        checked={downloadFormat === 'docx'}
-                        onChange={() => setDownloadFormat('docx')}
-                        className="accent-primary-container"
-                      />
+                      <input type="radio" name="download-format" value="docx" checked={downloadFormat === 'docx'}
+                        onChange={() => setDownloadFormat('docx')} className="accent-primary-container" />
                       <span className="text-sm font-bold">{t('editor.docx')}</span>
                     </label>
                     <label className={`flex items-center gap-2 p-3 rounded-2xl border transition-colors ${isPro
                         ? 'border-slate-200 dark:border-outline-variant/30 cursor-pointer'
-                        : 'border-slate-200 dark:border-outline-variant/20 cursor-not-allowed'
-                      }`}>
-                      <input
-                        type="radio"
-                        name="download-format"
-                        value="pdf"
-                        checked={downloadFormat === 'pdf'}
-                        onChange={() => isPro && setDownloadFormat('pdf')}
-                        disabled={!isPro}
-                        className="accent-primary-container"
-                      />
+                        : 'border-slate-200 dark:border-outline-variant/20 cursor-not-allowed'}`}>
+                      <input type="radio" name="download-format" value="pdf" checked={downloadFormat === 'pdf'}
+                        onChange={() => isPro && setDownloadFormat('pdf')} disabled={!isPro} className="accent-primary-container" />
                       <span className="text-sm font-bold">PDF</span>
                       {!isPro && (
                         <span className="ml-auto text-[9px] font-black bg-primary-container/15 text-primary-container border border-primary-container/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Pro</span>
@@ -558,12 +504,12 @@ export default function Editor() {
                   )}
                 </div>
 
+                {/* Botón descargar - CSS en vez de motion */}
                 <button onClick={handleConfirmarYDescargar} disabled={loading}
                   className="w-full py-6 bg-primary-container text-white rounded-3xl font-black text-lg shadow-xl shadow-orange-200 hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-3"
                 >
                   {loading ? (
-                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                      className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full" />
+                    <Spinner />
                   ) : (
                     <><span className="material-symbols-outlined">download</span> {t('editor.confirm')}</>
                   )}
@@ -573,6 +519,18 @@ export default function Editor() {
           )}
         </AnimatePresence>
       </main>
+
+      {/* CSS para animación shimmer */}
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%) skewX(-12deg); }
+          100% { transform: translateX(200%) skewX(-12deg); }
+        }
+        .animate-shimmer {
+          animation: shimmer 1.5s linear infinite;
+        }
+      `}</style>
+      <Footer />
     </div>
   );
 }
