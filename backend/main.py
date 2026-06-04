@@ -478,7 +478,7 @@ def añadir_marca_de_agua(doc):
         p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run("Generado con DocAI Free — Formateador Automático APA")
-        run.font.size = Pt(8)
+        run.font.size = Pt(10)
         run.font.name = "Arial"
 
 def _normalizar_categoria(categoria: str) -> str:
@@ -1028,7 +1028,7 @@ async def generar_final(
         _force_update_fields(doc)
 
     if datos.plan == "free":
-        pass  # Sin marca de agua en ningún plan
+        añadir_marca_de_agua(doc)
 
     try:
         doc.save(output_docx_path)
