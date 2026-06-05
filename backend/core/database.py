@@ -90,6 +90,7 @@ def _run_safe_migrations(conn):
     _add_column_if_not_exists(conn, "users", "last_login_ip", "VARCHAR(45)")
     _add_column_if_not_exists(conn, "users", "failed_login_attempts", "INT DEFAULT 0")
     _add_column_if_not_exists(conn, "users", "account_locked_until", "DATETIME")
+    _add_column_if_not_exists(conn, "users", "is_admin", "BOOLEAN DEFAULT FALSE")
 
     try:
         conn.execute(text("CREATE UNIQUE INDEX idx_unique_users_phone ON users(phone)"))
