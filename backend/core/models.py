@@ -40,6 +40,8 @@ class User(Base):
     failed_login_attempts = Column(Integer, default=0)     # Contador para bloquear tras N intentos fallidos
     account_locked_until = Column(DateTime, nullable=True) # Tiempo de castigo temporal
     
+    is_admin = Column(Boolean, default=False)              # Admin role flag
+
     plan_id = Column(Integer, ForeignKey("plans.id"), default=1)
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     updated_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'))
@@ -142,6 +144,25 @@ class BinanceTransaction(Base):
     order_id = Column(String(100), unique=True, nullable=False, index=True)
     amount = Column(DECIMAL(10, 2), nullable=False)
     currency = Column(String(10), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+
+    user = relationship("User")
+
+# ─────────────────────────────────────────────
+# TRANSACCIONES DE PAGO MÓVIL
+# ─────────────────────────────────────────────
+class PagoMovilTransaction(Base):
+    __tablename__ = "pago_movil_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    reference_number = Column(String(50), nullable=False)
+    phone_number = Column(String(20), nullable=False)
+    amount_ves = Column(DECIMAL(10, 2), nullable=False)
+    amount_usd = Column(DECIMAL(10, 2), nullable=False)
+    item_type = Column(String(20), nullable=False) # 'subscription' or 'pack'
+    item_id = Column(Integer, nullable=False)      # months or pack_id
+    status = Column(Enum('pending', 'approved', 'rejected', name='pm_status'), default='pending')
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
     user = relationship("User")

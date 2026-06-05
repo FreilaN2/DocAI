@@ -122,18 +122,24 @@
     "left_title": "DocIA",
     "left_desc": "Formatea tus documentos con Normas APA usando Inteligencia Artificial.",
     "continue_with": "O continuar con",
-    "google_error": "Error en Google Login"
+    "google_error": "Error al iniciar sesión con Google",
+    "account_created": "¡Cuenta creada con éxito! Bienvenido a DocAI.",
+    "welcome": "¡Bienvenido!",
+    "unexpected_error": "Ocurrió un error inesperado"
   },
   "payment": {
-    "processing": "Procesando tu pago...",
-    "wait": "Por favor espera un momento.",
-    "success_title": "¡Listo!",
+    "processing": "Procesando pago...",
+    "wait": "Por favor, espera unos segundos mientras verificamos la transacción.",
+    "success_title": "¡Pago procesado con éxito! 🎉",
     "success_desc": "¡Pago confirmado!",
-    "go_pro": "Ir al Editor Pro →",
+    "go_pro": "Ir al Editor Pro",
     "error_title": "Algo salió mal",
-    "back_upgrade": "Volver a Upgrade",
-    "binance_success": "¡Pago verificado con Binance! Su cuenta ha sido actualizada.",
-    "order_id_not_found": "No se encontró el ID de la orden."
+    "back_upgrade": "Volver a Planes",
+    "binance_success": "Hemos verificado tu transacción de Binance correctamente.",
+    "order_id_not_found": "No se recibió un Order ID válido de PayPal.",
+    "pm_success_msg": "Tu reporte de Pago Móvil ha sido enviado correctamente. Un administrador lo verificará pronto y activará tus beneficios.",
+    "pm_review_title": "Pago en Revisión",
+    "go_home": "Volver al Inicio"
   },
   "profile": {
     "title": "Mi Perfil",
@@ -179,7 +185,20 @@
     "binance_instr_1": "Abre tu app de Binance, escanea el código y envía exactamente",
     "order_id_label": "Order ID / ID de Transacción",
     "verify_payment": "Verificar Pago",
-    "go_back": "Volver atrás"
+    "go_back": "Volver atrás",
+    "pagomovil": "Pago Móvil",
+    "total_to_pay": "Total a pagar:",
+    "bcv_rate": "Tasa BCV:",
+    "loading_bcv": "Cargando tasa BCV...",
+    "receiver_data": "Datos Receptores:",
+    "bank": "Banco:",
+    "phone": "Teléfono:",
+    "id_card": "Cédula:",
+    "reference_number": "Número de Referencia (últimos 6 dígitos)",
+    "your_phone": "Tu Número de Teléfono",
+    "report_payment": "Reportar Pago",
+    "payment_reported": "Reporte enviado. Un administrador verificará tu pago pronto.",
+    "transfer_ves": "Transferencia (VES)"
   },
   "support": {
     "title": "Centro de Soporte",
@@ -199,5 +218,9 @@
   "tools_page": {
     "title": "Próximamente",
     "subtitle": "Estamos trabajando en nuevas herramientas de inteligencia artificial para potenciar tus investigaciones. ¡Vuelve pronto!"
+  },
+  "app": {
+    "payment_approved": "¡Tu pago ha sido aprobado! Tus beneficios han sido activados.",
+    "payment_rejected": "Tu pago ha sido rechazado. Verifica los datos y vuelve a intentarlo."
   }
 }

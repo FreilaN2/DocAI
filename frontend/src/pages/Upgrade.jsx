@@ -28,16 +28,34 @@ export default function Upgrade() {
   const [userInfo, setUserInfo] = useState(null);
 
   const [paymentModal, setPaymentModal] = useState({ isOpen: false, type: null, item: null });
-  const [binanceFlow, setBinanceFlow] = useState('select');
+  const [binanceFlow, setBinanceFlow] = useState('select'); // 'select', 'qr', 'pagomovil'
   const [binanceOrderId, setBinanceOrderId] = useState('');
   const [binanceLoading, setBinanceLoading] = useState(false);
+
+  const [bcvRate, setBcvRate] = useState(null);
+  const [pmReference, setPmReference] = useState('');
+  const [pmPhone, setPmPhone] = useState('');
+  const [pmLoading, setPmLoading] = useState(false);
 
   const openPaymentModal = (type, item) => {
     if (!getToken()) { navigate('/login'); return; }
     setPaymentModal({ isOpen: true, type, item });
     setBinanceFlow('select');
     setBinanceOrderId('');
+    setPmReference('');
+    setPmPhone('');
+    fetchBcvRate();
   };
+  
+  const fetchBcvRate = async () => {
+    try {
+      const resp = await api.get('/pago/tasa-bcv');
+      setBcvRate(resp.data.tasa);
+    } catch (e) {
+      console.error("Error obteniendo tasa BCV:", e);
+    }
+  };
+
   const closePaymentModal = () => setPaymentModal({ isOpen: false, type: null, item: null });
 
   useEffect(() => {
@@ -112,6 +130,44 @@ export default function Upgrade() {
       toast.error(err.response?.data?.detail || 'No se pudo verificar el pago en Binance');
     } finally {
       setBinanceLoading(false);
+    }
+  };
+
+  const handleReportPagoMovil = async () => {
+    if (!pmReference.trim() || !pmPhone.trim()) {
+      toast.error('Por favor ingresa la referencia y tu número de teléfono');
+      return;
+    }
+    setPmLoading(true);
+    try {
+      const itemId = paymentModal.type === 'subscription' ? paymentModal.item.months : paymentModal.item.id;
+      const resp = await api.post('/pago/reportar-pagomovil', {
+        reference_number: pmReference.trim(),
+        phone_number: pmPhone.trim(),
+        type: paymentModal.type,
+        item_id: itemId
+      });
+      
+      // Update local user state so polling knows a payment is pending
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          userObj.lastPaymentId = resp.data.transaction_id || userObj.lastPaymentId;
+          userObj.lastPaymentStatus = 'pending';
+          localStorage.setItem('user', JSON.stringify(userObj));
+          window.dispatchEvent(new Event('storage'));
+        } catch (e) {}
+      }
+
+      toast.success(t('upgrade.payment_reported'));
+      closePaymentModal();
+      navigate('/pago/exitoso?pagomovil=true');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || 'No se pudo reportar el pago');
+    } finally {
+      setPmLoading(false);
     }
   };
 
@@ -345,6 +401,17 @@ export default function Upgrade() {
                     <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" className="w-5 h-5" alt="BNB" />
                     {t('upgrade.pay_binance')}
                   </button>
+                  
+                  <div className="relative py-3 flex items-center">
+                    <div className="flex-grow border-t border-outline/20"></div>
+                    <span className="flex-shrink-0 mx-4 text-on-surface-variant text-xs uppercase tracking-widest font-bold">{t('upgrade.transfer_ves')}</span>
+                    <div className="flex-grow border-t border-outline/20"></div>
+                  </div>
+
+                  <button onClick={() => setBinanceFlow('pagomovil')} className="w-full py-4 rounded-xl font-bold bg-[#008b8b] text-white flex items-center justify-center gap-3 hover:bg-[#007070] transition-colors active:scale-[0.98]">
+                    <span className="material-symbols-outlined">smartphone</span>
+                    {t('upgrade.pagomovil')}
+                  </button>
                 </div>
               )}
 
@@ -374,6 +441,62 @@ export default function Upgrade() {
                       {binanceLoading ? (
                         <Spinner className="w-5 h-5" />
                       ) : t('upgrade.verify_payment')}
+                    </button>
+                    <button onClick={() => setBinanceFlow('select')} className="w-full py-3 mt-2 text-sm font-bold text-on-surface-variant hover:text-on-surface">
+                      {t('upgrade.go_back')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {binanceFlow === 'pagomovil' && (
+                <div className="flex flex-col items-center">
+                  <div className="bg-[#008b8b]/10 text-[#006060] dark:text-[#00aaaa] text-xs font-bold px-3 py-2 rounded-lg mb-4 text-center w-full">
+                    {bcvRate ? (
+                      <>{t('upgrade.total_to_pay')} <strong>Bs. {(paymentModal.item.price * bcvRate).toFixed(2)}</strong> ({t('upgrade.bcv_rate')} {bcvRate})</>
+                    ) : (
+                      <>{t('upgrade.loading_bcv')}</>
+                    )}
+                  </div>
+                  
+                  <div className="w-full bg-surface-variant/30 p-4 rounded-xl mb-4 border border-outline/20">
+                    <p className="text-sm font-bold mb-1">{t('upgrade.receiver_data')}</p>
+                    <ul className="text-sm space-y-1">
+                      <li><span className="font-semibold text-on-surface-variant">{t('upgrade.bank')}</span> Banco de Venezuela (0102)</li>
+                      <li><span className="font-semibold text-on-surface-variant">{t('upgrade.phone')}</span> 04122464468</li>
+                      <li><span className="font-semibold text-on-surface-variant">{t('upgrade.id_card')}</span> V-30.838.517</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="w-full">
+                    <label className="block text-sm font-bold text-on-surface mb-2">{t('upgrade.reference_number')}</label>
+                    <input 
+                      type="text" 
+                      value={pmReference}
+                      onChange={e => setPmReference(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Ej. 123456"
+                      maxLength={6}
+                      className="w-full px-4 py-3 rounded-xl border border-outline/30 bg-surface focus:outline-none focus:ring-2 focus:ring-primary mb-3"
+                    />
+
+                    <label className="block text-sm font-bold text-on-surface mb-2">{t('upgrade.your_phone')}</label>
+                    <input 
+                      type="text" 
+                      value={pmPhone}
+                      onChange={e => setPmPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                      placeholder="Ej. 04120000000"
+                      maxLength={11}
+                      className="w-full px-4 py-3 rounded-xl border border-outline/30 bg-surface focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                    />
+                    
+                    <button 
+                      onClick={handleReportPagoMovil}
+                      disabled={pmLoading || !bcvRate}
+                      className="w-full py-3 rounded-xl font-bold text-white bg-[#008b8b] hover:bg-[#007070] transition-all active:scale-[0.98] flex justify-center items-center gap-2"
+                    >
+                      {pmLoading ? (
+                        <Spinner className="w-5 h-5" />
+                      ) : t('upgrade.report_payment')}
                     </button>
                     <button onClick={() => setBinanceFlow('select')} className="w-full py-3 mt-2 text-sm font-bold text-on-surface-variant hover:text-on-surface">
                       {t('upgrade.go_back')}

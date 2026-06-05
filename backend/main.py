@@ -27,7 +27,7 @@ from core.database import init_db, get_db
 from core.apa_rules import procesar_con_reglas, clasificar_parrafo_reglas
 from core.apa_ai import procesar_con_ia, procesar_con_ia_stream
 from core.auth import get_password_hash, verify_password, create_access_token
-from core.models import User, Plan, TokenBalance
+from core.models import User, Plan, TokenBalance, PagoMovilTransaction
 from core.token_service import (
     get_available_tokens,
     consume_tokens,
@@ -709,6 +709,18 @@ class VerifyBinanceRequest(BaseModel):
     type: str
     item_id: int
 
+class ReportPagoMovilRequest(BaseModel):
+    reference_number: str
+    phone_number: str
+    type: str # 'subscription' or 'pack'
+    item_id: int # months or pack_id
+
+class AdminPagoActionRequest(BaseModel):
+    transaction_id: int
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 # ═══════════════════════════════════════════════════════════
 # PRECIOS (constantes de módulo, no inline en endpoints)
@@ -755,10 +767,38 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
             "phone": new_user.phone,
             "country": new_user.country,
             "plan": new_user.plan.name if new_user.plan else "free",
+            "isAdmin": new_user.is_admin,
             "createdAt": new_user.created_at.isoformat() if getattr(new_user, 'created_at', None) else None,
             "lastLoginAt": None,
         },
     }
+
+
+def _get_user_dict(u: User, db: Session):
+    plan_name = u.plan.name if getattr(u, 'plan', None) else "free"
+    tokens = get_available_tokens(u.id, db)
+    
+    latest_pago = db.query(PagoMovilTransaction).filter(PagoMovilTransaction.user_id == u.id).order_by(PagoMovilTransaction.created_at.desc()).first()
+    
+    return {
+        "id": u.id,
+        "email": u.email,
+        "firstName": u.first_name,
+        "lastName": u.last_name,
+        "plan": plan_name,
+        "country": u.country,
+        "phone": u.phone,
+        "createdAt": u.created_at.isoformat() if getattr(u, 'created_at', None) else None,
+        "lastLoginAt": u.last_login_at.isoformat() if getattr(u, 'last_login_at', None) else None,
+        "isAdmin": u.is_admin,
+        "tokens": tokens,
+        "lastPaymentId": latest_pago.id if latest_pago else None,
+        "lastPaymentStatus": latest_pago.status if latest_pago else None
+    }
+
+@app.get("/user/me")
+def get_user_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return _get_user_dict(current_user, db)
 
 
 @app.post("/login")
@@ -775,17 +815,7 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
         "status": "success",
         "access_token": access_token,
         "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "firstName": user.first_name,
-            "lastName": user.last_name,
-            "phone": user.phone,
-            "country": user.country,
-            "plan": user.plan.name if user.plan else "free",
-            "createdAt": user.created_at.isoformat() if getattr(user, 'created_at', None) else None,
-            "lastLoginAt": user.last_login_at.isoformat() if getattr(user, 'last_login_at', None) else None,
-        },
+        "user": _get_user_dict(user, db)
     }
 
 
@@ -821,15 +851,7 @@ def auth_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
             "status": "success",
             "access_token": access_token,
             "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "firstName": user.first_name,
-                "lastName": user.last_name,
-                "phone": user.phone,
-                "country": user.country,
-                "plan": user.plan.name if user.plan else "free",
-            },
+            "user": _get_user_dict(user, db)
         }
     except ValueError:
         raise HTTPException(status_code=400, detail="Token de Google inválido o expirado.")
@@ -837,6 +859,21 @@ def auth_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
         logger.error(f"Error en Google Auth: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno: {e}")
 
+@app.post("/auth/change-password")
+def change_password(data: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.password_hash:
+        raise HTTPException(status_code=400, detail="Los usuarios registrados con Google no tienen contraseña.")
+        
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta.")
+        
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres.")
+        
+    current_user.password_hash = get_password_hash(data.new_password)
+    db.commit()
+    
+    return {"status": "success", "message": "Contraseña actualizada correctamente"}
 
 # ═══════════════════════════════════════════════════════════
 # ENDPOINTS DE PROCESAMIENTO APA
@@ -1336,6 +1373,198 @@ async def verify_binance(
     db.commit()
     logger.info(f"🎉 Binance Pay: user={current_user.id}, type={data.type}, item={data.item_id}")
     return {"status": "success", "message": message}
+
+# ═══════════════════════════════════════════════════════════
+# ENDPOINTS DE PAGO — PAGO MÓVIL
+# ═══════════════════════════════════════════════════════════
+
+@app.get("/pago/tasa-bcv")
+async def obtener_tasa_bcv():
+    from core.bcv_scraper import get_bcv_rate
+    rate = get_bcv_rate()
+    if rate is None:
+        raise HTTPException(status_code=503, detail="No se pudo obtener la tasa BCV en este momento.")
+    return {"tasa": rate}
+
+@app.post("/pago/reportar-pagomovil")
+async def reportar_pago_movil(
+    data: ReportPagoMovilRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from core.models import PagoMovilTransaction, TokenPack
+    from core.bcv_scraper import get_bcv_rate
+    
+    rate = get_bcv_rate()
+    if rate is None:
+        raise HTTPException(status_code=503, detail="No se pudo obtener la tasa BCV para procesar el pago.")
+
+    if data.type == 'subscription':
+        if data.item_id not in SUBSCRIPTION_PRICES:
+            raise HTTPException(status_code=400, detail="Duración no válida.")
+        amount_usd = float(SUBSCRIPTION_PRICES[data.item_id])
+    elif data.type == 'pack':
+        pack = db.query(TokenPack).filter(TokenPack.id == data.item_id).first()
+        if not pack:
+            raise HTTPException(status_code=404, detail="Paquete no encontrado.")
+        amount_usd = float(pack.price)
+    else:
+        raise HTTPException(status_code=400, detail="Tipo de pago no válido.")
+
+    amount_ves = round(amount_usd * rate, 2)
+
+    # Verificar si la referencia ya existe
+    existing = db.query(PagoMovilTransaction).filter(PagoMovilTransaction.reference_number == data.reference_number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Esta referencia ya ha sido reportada.")
+
+    nuevo_pago = PagoMovilTransaction(
+        user_id=current_user.id,
+        reference_number=data.reference_number,
+        phone_number=data.phone_number,
+        amount_ves=amount_ves,
+        amount_usd=amount_usd,
+        item_type=data.type,
+        item_id=data.item_id,
+        status='pending'
+    )
+    db.add(nuevo_pago)
+    db.commit()
+    db.refresh(nuevo_pago)
+    logger.info(f"📱 Pago Móvil reportado: ref={data.reference_number}, user={current_user.id}")
+    return {"status": "success", "message": "Reporte enviado. Un administrador verificará tu pago pronto.", "transaction_id": nuevo_pago.id}
+
+# ═══════════════════════════════════════════════════════════
+# ENDPOINTS DE ADMINISTRADOR (PANEL PAGO MÓVIL)
+# ═══════════════════════════════════════════════════════════
+
+def get_admin_user(current_user: User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Acceso denegado. Se requiere rol de administrador.")
+    return current_user
+
+@app.get("/admin/pagos")
+async def listar_pagos_pendientes(
+    status: Optional[str] = Query("pending"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    from core.models import PagoMovilTransaction
+    # Obtener pagos según status
+    query = db.query(PagoMovilTransaction)
+    if status != "all":
+        query = query.filter(PagoMovilTransaction.status == status)
+        
+    pagos = query.order_by(PagoMovilTransaction.created_at.desc()).all()
+    return [{
+        "id": p.id,
+        "user_email": p.user.email,
+        "reference_number": p.reference_number,
+        "phone_number": p.phone_number,
+        "amount_ves": float(p.amount_ves),
+        "amount_usd": float(p.amount_usd),
+        "type": p.item_type,
+        "item_id": p.item_id,
+        "status": p.status,
+        "created_at": p.created_at.isoformat() if p.created_at else None
+    } for p in pagos]
+
+@app.post("/admin/aprobar-pago")
+async def aprobar_pago(
+    data: AdminPagoActionRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+    from core.models import PagoMovilTransaction, Subscription, TokenPack
+
+    pago = db.query(PagoMovilTransaction).filter(PagoMovilTransaction.id == data.transaction_id).first()
+    if not pago:
+        raise HTTPException(status_code=404, detail="Pago no encontrado.")
+    if pago.status != 'pending':
+        raise HTTPException(status_code=400, detail="El pago ya ha sido procesado.")
+
+    user = pago.user
+    
+    if pago.item_type == 'subscription':
+        pro_plan = db.query(Plan).filter(Plan.name == "pro").first()
+        user.plan_id = pro_plan.id
+        now = datetime.utcnow()
+        db.add(Subscription(
+            user_id=user.id,
+            paypal_order_id=f"pagomovil_{pago.id}",
+            months_paid=pago.item_id,
+            tokens_per_month=TOKENS_PER_MONTH_PRO,
+            started_at=now,
+            ends_at=now + relativedelta(months=pago.item_id),
+            status="active",
+        ))
+        assign_monthly_tokens(user.id, TOKENS_PER_MONTH_PRO, db)
+    elif pago.item_type == 'pack':
+        pack = db.query(TokenPack).filter(TokenPack.id == pago.item_id).first()
+        if pack:
+            add_extra_tokens(user.id, pack.tokens, db)
+            
+    pago.status = 'approved'
+    db.commit()
+    logger.info(f"✅ Pago Móvil #{pago.id} APROBADO por {admin.email}")
+    return {"status": "success", "message": "Pago aprobado y beneficios asignados al usuario."}
+
+@app.post("/admin/rechazar-pago")
+async def rechazar_pago(
+    data: AdminPagoActionRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    from core.models import PagoMovilTransaction
+    pago = db.query(PagoMovilTransaction).filter(PagoMovilTransaction.id == data.transaction_id).first()
+    if not pago:
+        raise HTTPException(status_code=404, detail="Pago no encontrado.")
+    if pago.status != 'pending':
+        raise HTTPException(status_code=400, detail="El pago ya ha sido procesado.")
+
+    pago.status = 'rejected'
+    db.commit()
+    logger.info(f"❌ Pago Móvil #{pago.id} RECHAZADO por {admin.email}")
+    return {"status": "success", "message": "Pago rechazado."}
+
+class CreateAdminRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/admin/create-admin")
+async def create_admin(
+    data: CreateAdminRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_admin_user)
+):
+    from core.models import User, Plan
+    
+    existing_user = db.query(User).filter(User.email == data.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="El correo ya está registrado.")
+        
+    free_plan = db.query(Plan).filter(Plan.name == "free").first()
+    
+    hashed_pwd = get_password_hash(data.password)
+    
+    new_admin = User(
+        email=data.email,
+        password_hash=hashed_pwd,
+        first_name="Admin",
+        last_name="",
+        phone="",
+        country="",
+        plan_id=free_plan.id if free_plan else 1,
+        is_email_verified=True,
+        is_admin=True
+    )
+    db.add(new_admin)
+    db.commit()
+    logger.info(f"✅ Nuevo administrador creado: {data.email} por {admin.email}")
+    return {"status": "success", "message": "Usuario administrador creado exitosamente."}
+
 
 
 @app.post("/pago/pack-tokens")

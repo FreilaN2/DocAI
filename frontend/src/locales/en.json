@@ -121,18 +121,24 @@
     "left_title": "DocIA",
     "left_desc": "Format your documents with APA Standards using Artificial Intelligence.",
     "continue_with": "Or continue with",
-    "google_error": "Error during Google Login"
+    "google_error": "Error logging in with Google",
+    "account_created": "Account successfully created! Welcome to DocAI.",
+    "welcome": "Welcome!",
+    "unexpected_error": "An unexpected error occurred"
   },
   "payment": {
-    "processing": "Processing your payment...",
-    "wait": "Please wait a moment.",
-    "success_title": "All set!",
+    "processing": "Processing payment...",
+    "wait": "Please wait a few seconds while we verify your transaction.",
+    "success_title": "Payment processed successfully! 🎉",
     "success_desc": "Payment confirmed!",
-    "go_pro": "Go to Pro Editor →",
+    "go_pro": "Go to Editor Pro",
     "error_title": "Something went wrong",
-    "back_upgrade": "Back to Upgrade",
-    "binance_success": "Payment verified with Binance! Your account has been updated.",
-    "order_id_not_found": "Order ID not found."
+    "back_upgrade": "Back to Plans",
+    "binance_success": "We have successfully verified your Binance transaction.",
+    "order_id_not_found": "A valid PayPal Order ID was not received.",
+    "pm_success_msg": "Your Pago Móvil report has been successfully submitted. An administrator will review it shortly and activate your benefits.",
+    "pm_review_title": "Payment Under Review",
+    "go_home": "Back to Home"
   },
   "profile": {
     "title": "My Profile",
@@ -178,7 +184,20 @@
     "binance_instr_1": "Open your Binance app, scan the code and send exactly",
     "order_id_label": "Order ID / Transaction ID",
     "verify_payment": "Verify Payment",
-    "go_back": "Go back"
+    "go_back": "Go back",
+    "pagomovil": "Pago Móvil",
+    "total_to_pay": "Total to pay:",
+    "bcv_rate": "BCV Rate:",
+    "loading_bcv": "Loading BCV rate...",
+    "receiver_data": "Receiver Data:",
+    "bank": "Bank:",
+    "phone": "Phone:",
+    "id_card": "ID Card:",
+    "reference_number": "Reference Number (last 6 digits)",
+    "your_phone": "Your Phone Number",
+    "report_payment": "Report Payment",
+    "payment_reported": "Report sent. An administrator will verify your payment soon.",
+    "transfer_ves": "Bank Transfer (VES)"
   },
   "support": {
     "title": "Support Center",
@@ -198,5 +217,9 @@
   "tools_page": {
     "title": "Coming Soon",
     "subtitle": "We are working on new artificial intelligence tools to power up your research. Check back soon!"
+  },
+  "app": {
+    "payment_approved": "Your payment has been approved! Your benefits have been activated.",
+    "payment_rejected": "Your payment has been rejected. Please verify the details and try again."
   }
 }

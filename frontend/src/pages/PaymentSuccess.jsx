@@ -24,6 +24,12 @@ export default function PaymentSuccess() {
       return;
     }
 
+    if (searchParams.get('pagomovil') === 'true') {
+      setStatus('pending');
+      setMessage(t('payment.pm_success_msg'));
+      return;
+    }
+
     // PayPal usa 'token' como el identificador de la orden aprobada
     const orderId = searchParams.get('token'); 
     
@@ -140,6 +146,26 @@ export default function PaymentSuccess() {
                 className="inline-block bg-primary-container text-white font-black px-8 py-4 rounded-2xl shadow-lg shadow-orange-200 dark:shadow-orange-900/20 hover:opacity-90 transition-all no-underline"
               >
                 {t('payment.go_pro')}
+              </Link>
+            </>
+          )}
+
+          {status === 'pending' && (
+            <>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                className="w-20 h-20 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-6"
+              >
+                <span className="material-symbols-outlined text-blue-600 dark:text-blue-500 text-4xl">hourglass_empty</span>
+              </motion.div>
+              <h2 className="text-3xl font-black text-on-surface mb-3">{t('payment.pm_review_title')}</h2>
+              <p className="text-on-surface-variant text-sm mb-8">{message}</p>
+              <Link to="/"
+                className="inline-block bg-primary-container text-white font-black px-8 py-4 rounded-2xl shadow-lg shadow-orange-200 dark:shadow-orange-900/20 hover:opacity-90 transition-all no-underline"
+              >
+                {t('payment.go_home')}
               </Link>
             </>
           )}

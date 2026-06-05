@@ -22,4 +22,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Create a separate instance for Admin Panel to isolate sessions
+export const adminApi = axios.create({
+  baseURL: IS_PRODUCTION 
+    ? '' 
+    : 'http://127.0.0.1:8000',
+});
+
+adminApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem('admin_token');
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export default api;

@@ -303,7 +303,7 @@ export default function Auth() {
         localStorage.setItem('user', JSON.stringify(response.data.user));
 
         if (!isLogin) {
-          toast.success("¡Cuenta creada con éxito! Bienvenido a DocAI.", {
+          toast.success(t('auth.account_created'), {
             duration: 4000,
             style: { borderRadius: '12px', background: '#333', color: '#fff' },
           });
@@ -312,7 +312,7 @@ export default function Auth() {
         navigate(`/editor/${userPlan}`);
       }
     } catch (err) {
-      setError(err.response?.data?.detail || "Ocurrió un error inesperado");
+      setError(err.response?.data?.detail || t('auth.unexpected_error'));
     } finally {
       setLoading(false);
     }
@@ -325,11 +325,11 @@ export default function Auth() {
       if (response.data.status === 'success') {
         localStorage.setItem('token', response.data.access_token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        toast.success("¡Bienvenido!", { style: { background: '#1a1512', color: '#fff', borderRadius: '15px' }, icon: '🚀' });
+        toast.success(t('auth.welcome'), { style: { background: '#1a1512', color: '#fff', borderRadius: '15px' }, icon: '🚀' });
         navigate('/editor/free');
       }
     } catch (err) {
-      toast.error("Error al iniciar sesión con Google");
+      toast.error(t('auth.google_error'));
     } finally {
       setLoading(false);
     }

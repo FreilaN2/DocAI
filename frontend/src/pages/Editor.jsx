@@ -54,6 +54,32 @@ export default function Editor() {
   );
 
   // ── Guardia de Ruta y Gestión de Tokens ─────────────────────────
+  const fetchTokens = () => {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        if (userData.plan === 'pro') {
+          api.get('/tokens/balance').then(r => {
+            setTokenBalance(r.data);
+            if (!isPro && r.data.total > 0) {
+              navigate('/editor/pro', { replace: true });
+            }
+          }).catch(() => setTokenBalance(null));
+        } else {
+          setTokenBalance(null);
+        }
+      } catch (e) { }
+    }
+  };
+
+  useEffect(() => {
+    fetchTokens();
+    window.addEventListener('storage', fetchTokens);
+    return () => window.removeEventListener('storage', fetchTokens);
+  }, [isPro, navigate]);
+
   useEffect(() => {
     if (isPro) {
       if (!token || !storedUser) {
@@ -65,20 +91,6 @@ export default function Editor() {
         navigate('/upgrade', { replace: true });
         return;
       }
-    }
-
-    if (token && storedUser) {
-      try {
-        const userData = JSON.parse(storedUser);
-        if (userData.plan === 'pro') {
-          api.get('/tokens/balance').then(r => {
-            setTokenBalance(r.data);
-            if (!isPro && r.data.total > 0) {
-              navigate('/editor/pro', { replace: true });
-            }
-          }).catch(() => setTokenBalance(null));
-        }
-      } catch (e) { }
     }
 
     const pendingResult = sessionStorage.getItem('docai_pending_result');

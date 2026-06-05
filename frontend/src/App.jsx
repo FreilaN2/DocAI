@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import './i18n';
+import { toast } from 'react-hot-toast';
+import api from './api';
+import i18n from './i18n';
 import Landing from './pages/Landing';
 import Editor from './pages/Editor';
 import Auth from './pages/Auth';
@@ -10,8 +12,61 @@ import Upgrade from './pages/Upgrade';
 import PaymentSuccess from './pages/PaymentSuccess';
 import Support from './pages/Support';
 import Tools from './pages/Tools';
+import AdminPanel from './pages/AdminPanel';
 
 function App() {
+  useEffect(() => {
+    const pollUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const resp = await api.get('/user/me');
+        const newData = resp.data;
+        const oldDataStr = localStorage.getItem('user');
+        let updated = false;
+
+        // Check for payment status changes using a localStorage flag
+        if (newData.lastPaymentId) {
+          const notifiedKey = `notified_payment_${newData.lastPaymentId}`;
+          const isNotified = localStorage.getItem(notifiedKey);
+          
+          if (!isNotified) {
+            if (newData.lastPaymentStatus === 'approved') {
+              toast.success(i18n.t('app.payment_approved'), { duration: 6000, icon: '🎉' });
+              localStorage.setItem(notifiedKey, 'true');
+              updated = true;
+            } else if (newData.lastPaymentStatus === 'rejected') {
+              toast.error(i18n.t('app.payment_rejected'), { duration: 8000 });
+              localStorage.setItem(notifiedKey, 'true');
+              updated = true;
+            }
+          }
+        }
+        
+        if (oldDataStr) {
+          const oldData = JSON.parse(oldDataStr);
+          // If plan or tokens changed magically (e.g. admin changed them directly)
+          if (newData.plan !== oldData.plan || newData.tokens !== oldData.tokens || updated) {
+            localStorage.setItem('user', JSON.stringify(newData));
+            window.dispatchEvent(new Event('storage'));
+          }
+        } else {
+          localStorage.setItem('user', JSON.stringify(newData));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch (err) {
+        // Silently fail, user might just be offline or token expired (handled elsewhere)
+      }
+    };
+
+    const interval = setInterval(pollUser, 15000); // Check every 15 seconds
+    // Optional: do an immediate check after 3 seconds
+    setTimeout(pollUser, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <Router>
       <Toaster
@@ -32,6 +87,7 @@ function App() {
         <Route path="/support" element={<Support />} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/pago/exitoso" element={<PaymentSuccess />} />
+        <Route path="/panel" element={<AdminPanel />} />
       </Routes>
     </Router>
   );

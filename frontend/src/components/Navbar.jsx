@@ -95,6 +95,16 @@ export default function Navbar() {
             <span className="material-symbols-outlined text-[18px]">support_agent</span>
             {t('navbar.support')}
           </Link>
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 mr-1 sm:mr-2 rounded-full bg-slate-100 dark:bg-surface-variant hover:bg-slate-200 dark:hover:bg-surface-container-high text-slate-600 dark:text-on-surface-variant transition-all active:scale-90 border border-slate-200 dark:border-outline/50"
+            title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          >
+            <span className="material-symbols-outlined text-[16px] sm:text-[18px]">
+              {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+            </span>
+          </button>
 
           {/* Language Toggle - Con banderas */}
           <button
@@ -144,6 +154,13 @@ export default function Navbar() {
                   <Link to="/upgrade"
                     className="text-[9px] font-black bg-slate-200 dark:bg-surface-container-high text-slate-500 dark:text-on-surface-variant px-2 py-0.5 rounded-full uppercase tracking-widest hover:bg-orange-100 hover:text-primary-container transition-colors no-underline">
                     Free ↑
+                  </Link>
+                )}
+                {user.isAdmin && (
+                  <Link to="/panel"
+                    className="ml-2 text-[9px] font-black bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-0.5 rounded-full uppercase tracking-widest hover:bg-blue-200 transition-colors no-underline flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[10px]">admin_panel_settings</span>
+                    Admin
                   </Link>
                 )}
               </div>
