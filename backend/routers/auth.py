@@ -1,0 +1,179 @@
+"""
+routers/auth.py
+===============
+Endpoints de autenticación y gestión de cuenta de usuario.
+"""
+
+import os
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+from core.database import get_db
+from core.models import User, PagoMovilTransaction
+from core.auth import get_password_hash, verify_password, create_access_token
+from core.token_service import get_available_tokens
+from core.dependencies import get_current_user
+from core.schemas import UserCreate, UserLogin, GoogleAuthRequest, ChangePasswordRequest
+from core.limiter import limiter
+
+router = APIRouter()
+
+
+# ─── Helper interno ───────────────────────────────────────
+
+def _get_user_dict(u: User, db: Session) -> dict:
+    """Serializa un usuario a dict para respuestas de autenticación."""
+    plan_name = u.plan.name if getattr(u, 'plan', None) else "free"
+    tokens    = get_available_tokens(u.id, db)
+
+    latest_pago = (
+        db.query(PagoMovilTransaction)
+        .filter(PagoMovilTransaction.user_id == u.id)
+        .order_by(PagoMovilTransaction.created_at.desc())
+        .first()
+    )
+
+    return {
+        "id": u.id,
+        "email": u.email,
+        "firstName": u.first_name,
+        "lastName": u.last_name,
+        "plan": plan_name,
+        "country": u.country,
+        "phone": u.phone,
+        "createdAt": u.created_at.isoformat() if getattr(u, 'created_at', None) else None,
+        "lastLoginAt": u.last_login_at.isoformat() if getattr(u, 'last_login_at', None) else None,
+        "isAdmin": u.is_admin,
+        "tokens": tokens,
+        "lastPaymentId": latest_pago.id if latest_pago else None,
+        "lastPaymentStatus": latest_pago.status if latest_pago else None,
+    }
+
+
+# ─── Endpoints ────────────────────────────────────────────
+
+@router.post("/register")
+@limiter.limit("5/minute")
+def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == user_data.email).first():
+        raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
+    if user_data.phone and db.query(User).filter(User.phone == user_data.phone).first():
+        raise HTTPException(status_code=400, detail="Este número de teléfono ya está asociado a otra cuenta.")
+
+    new_user = User(
+        first_name=user_data.firstName,
+        last_name=user_data.lastName,
+        email=user_data.email,
+        phone=user_data.phone,
+        country=user_data.country,
+        password_hash=get_password_hash(user_data.password),
+        plan_id=1,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    access_token = create_access_token(data={"sub": new_user.email})
+    return {
+        "status": "success",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": new_user.id,
+            "email": new_user.email,
+            "firstName": new_user.first_name,
+            "lastName": new_user.last_name,
+            "phone": new_user.phone,
+            "country": new_user.country,
+            "plan": new_user.plan.name if new_user.plan else "free",
+            "isAdmin": new_user.is_admin,
+            "createdAt": new_user.created_at.isoformat() if getattr(new_user, 'created_at', None) else None,
+            "lastLoginAt": None,
+        },
+    }
+
+
+@router.get("/user/me")
+def get_user_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return _get_user_dict(current_user, db)
+
+
+@router.post("/login")
+@limiter.limit("5/minute")
+def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
+
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    access_token = create_access_token(data={"sub": user.email})
+    return {
+        "status": "success",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": _get_user_dict(user, db),
+    }
+
+
+@router.post("/auth/google")
+def auth_google(data: GoogleAuthRequest, db: Session = Depends(get_db)):
+    try:
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        id_info    = id_token.verify_oauth2_token(data.token, google_requests.Request(), client_id)
+        email      = id_info.get("email")
+        first_name = id_info.get("given_name", "Google")
+        last_name  = id_info.get("family_name", "User")
+
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone=None,
+                country="US",
+                password_hash=get_password_hash(os.urandom(24).hex()),
+                plan_id=1,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        user.last_login_at = datetime.now(timezone.utc)
+        db.commit()
+
+        access_token = create_access_token(data={"sub": user.email})
+        return {
+            "status": "success",
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": _get_user_dict(user, db),
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Token de Google inválido o expirado.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error interno: {e}")
+
+
+@router.post("/auth/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not current_user.password_hash:
+        raise HTTPException(status_code=400, detail="Los usuarios registrados con Google no tienen contraseña.")
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta.")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres.")
+
+    current_user.password_hash = get_password_hash(data.new_password)
+    db.commit()
+    return {"status": "success", "message": "Contraseña actualizada correctamente"}
