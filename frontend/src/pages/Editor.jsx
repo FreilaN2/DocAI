@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import PlanBadge from '../components/PlanBadge';
 import ParagraphCard from '../components/ParagraphCard';
+import DocumentPreview from '../components/DocumentPreview';
 import Footer from '../components/Footer';
 
 export default function Editor() {
@@ -19,6 +20,7 @@ export default function Editor() {
   const [fuente, setFuente] = useState("Times New Roman");
   const [result, setResult] = useState(null);
   const [includeTOC, setIncludeTOC] = useState(true);
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'document'
 
   const fuenteOpciones = edicion === "6ta"
     ? ["Times New Roman"]
@@ -234,6 +236,13 @@ export default function Editor() {
   const handleLabelChange = (id, newCategory) => {
     const updatedDetalles = result.detalles.map(item =>
       item.id === id ? { ...item, categoria: newCategory } : item
+    );
+    setResult({ ...result, detalles: updatedDetalles });
+  };
+
+  const handleTextChange = (id, newText) => {
+    const updatedDetalles = result.detalles.map(item =>
+      item.id === id ? { ...item, texto: newText } : item
     );
     setResult({ ...result, detalles: updatedDetalles });
   };
@@ -458,16 +467,74 @@ export default function Editor() {
                     <h2 className="text-2xl font-black tracking-tight text-on-surface">{t('editor.correction_title')}</h2>
                     <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">{t('editor.correction_subtitle')}</p>
                   </div>
+
+                  {/* Toggle de vista — solo Pro */}
+                  {isPro && (
+                    <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-surface-variant rounded-2xl self-start md:self-auto shrink-0">
+                      <button
+                        onClick={() => setViewMode('cards')}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 ${
+                          viewMode === 'cards'
+                            ? 'bg-white dark:bg-surface shadow-sm text-on-surface'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>dashboard</span>
+                        Tarjetas
+                      </button>
+                      <button
+                        onClick={() => setViewMode('document')}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all duration-200 ${
+                          viewMode === 'document'
+                            ? 'bg-white dark:bg-surface shadow-sm text-on-surface'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>article</span>
+                        Documento
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* Lista de párrafos - SIN motion.div individuales para evitar cientos de animaciones */}
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 mb-8">
-                  {result.detalles?.map((item) => (
-                    <div key={item.id}>
-                      <ParagraphCard item={item} onLabelChange={handleLabelChange} />
+                {/* Vista tarjetas */}
+                <AnimatePresence mode="wait">
+                {viewMode === 'cards' ? (
+                  <motion.div
+                    key="cards"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 mb-8">
+                      {result.detalles?.map((item) => (
+                        <div key={item.id}>
+                          <ParagraphCard item={item} onLabelChange={handleLabelChange} />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </motion.div>
+                ) : (
+                  /* Vista documento */
+                  <motion.div
+                    key="document"
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                    className="mb-8 overflow-x-auto"
+                  >
+                    <DocumentPreview
+                      parrafos={result.detalles || []}
+                      edicion={edicion}
+                      fuente={fuente}
+                      onLabelChange={handleLabelChange}
+                      onTextChange={handleTextChange}
+                    />
+                  </motion.div>
+                )}
+                </AnimatePresence>
 
                 {/* Opciones de descarga */}
                 <div className={`flex flex-col gap-3 mb-8 p-5 rounded-2xl border transition-all ${isPro
