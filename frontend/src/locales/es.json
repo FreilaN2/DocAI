@@ -55,6 +55,10 @@
   "editor": {
     "back": "Volver",
     "upload_title": "Configuración del Documento",
+    "adblock_title": "Bloqueador de Anuncios Detectado",
+    "adblock_desc": "DocAI se mantiene gratuito gracias a la publicidad. Por favor, desactiva tu bloqueador de anuncios (AdBlock, uBlock, Brave Shields) en esta página o adquiere un plan Pro para subir archivos sin publicidad.",
+    "adblock_btn_disabled": "Ya lo desactivé",
+    "adblock_btn_pro": "Ver planes Pro",
     "upload_subtitle": "Sube tu archivo y elige el estilo de formato",
     "style": "Estilo de Edición",
     "font": "Fuente APA",

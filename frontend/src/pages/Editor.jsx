@@ -9,6 +9,7 @@ import PlanBadge from '../components/PlanBadge';
 import ParagraphCard from '../components/ParagraphCard';
 import DocumentPreview from '../components/DocumentPreview';
 import Footer from '../components/Footer';
+import { AdBanner, AdNative, AdGlobal } from '../components/Ads';
 
 export default function Editor() {
   const { plan } = useParams();
@@ -34,6 +35,7 @@ export default function Editor() {
   
   const [downloadFormat, setDownloadFormat] = useState('docx');
   const [isDragging, setIsDragging] = useState(false);
+  const [adBlockDetected, setAdBlockDetected] = useState(false);
   const [tokenBalance, setTokenBalance] = useState(null);
   const [progreso, setProgreso] = useState(0);
   const [loteActual, setLoteActual] = useState(0);
@@ -133,6 +135,46 @@ export default function Editor() {
       }
     }
   }, [isPro, token, storedUser, navigate]);
+
+  // ── Detección de AdBlock ──────────────────────────────────────────
+  useEffect(() => {
+    if (!isPro) {
+      const checkAdBlock = async () => {
+        let isBlocked = false;
+        
+        // 1. Verificación por DOM (elemento cebo)
+        const adTest = document.createElement('div');
+        adTest.innerHTML = '&nbsp;';
+        // Clases comúnmente bloqueadas por AdBlockers
+        adTest.className = 'adsbox ad-placement doubleclick ad-placeholder ad-banner';
+        adTest.style.position = 'absolute';
+        adTest.style.top = '-1000px';
+        document.body.appendChild(adTest);
+        
+        setTimeout(() => {
+          if (adTest.offsetHeight === 0 || adTest.style.display === 'none') {
+             isBlocked = true;
+          }
+          if (isBlocked) setAdBlockDetected(true);
+          adTest.remove();
+        }, 500);
+
+        // 2. Verificación por red (ping rápido a red genérica bloqueada universalmente)
+        try {
+          await fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js', {
+            method: 'HEAD',
+            mode: 'no-cors',
+            cache: 'no-store'
+          });
+        } catch (e) {
+          setAdBlockDetected(true);
+        }
+      };
+      
+      // Esperar un instante para que el navegador resuelva si bloquea recursos
+      setTimeout(checkAdBlock, 1000);
+    }
+  }, [isPro]);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -290,6 +332,28 @@ export default function Editor() {
   return (
     <div className="bg-background min-h-screen text-on-background relative overflow-x-hidden">
       <Navbar />
+      {!isPro && <AdGlobal />}
+
+      {/* Skyscraper Izquierdo */}
+      {!isPro && (
+        <div className="hidden xl:block fixed left-4 top-[60%] -translate-y-1/2 z-0 opacity-80 hover:opacity-100 transition-opacity">
+          <AdBanner optionsKey="c15e9b8930c739532302d4d56850443e" width={160} height={600} />
+        </div>
+      )}
+      
+      {/* Skyscraper Derecho */}
+      {!isPro && (
+        <div className="hidden xl:block fixed right-4 top-[60%] -translate-y-1/2 z-0 opacity-80 hover:opacity-100 transition-opacity">
+          <AdBanner optionsKey="24a6e6653b1b0309553375faf4aeb1e3" width={160} height={300} />
+        </div>
+      )}
+
+      {/* Sticky Mobile Banner */}
+      {!isPro && (
+        <div className="block sm:hidden fixed bottom-0 left-0 w-full z-50 bg-background/90 backdrop-blur border-t border-outline-variant/30 pt-2 pb-[env(safe-area-inset-bottom)]">
+          <AdBanner optionsKey="fcb577830dd336a4f57c44ec27eb9e47" width={320} height={50} />
+        </div>
+      )}
 
       {/* Ambient Background - ESTÁTICO */}
       <div className="fixed inset-0 z-[-1] pointer-events-none">
@@ -297,8 +361,15 @@ export default function Editor() {
         <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-surface-variant rounded-full blur-[100px] opacity-30" />
       </div>
 
-      <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto flex flex-col gap-8">
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="flex items-center justify-center sm:justify-end mb-4">
+      <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto flex flex-col gap-8 relative z-10">
+        {!isPro && <div className="hidden md:flex w-full justify-center mb-[-1rem]"><AdBanner optionsKey="7f2d1fbdf33a701cb4736f739bc34dd3" width={728} height={90} /></div>}
+        
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="flex flex-col sm:flex-row items-center justify-between sm:justify-end gap-4 mb-4 w-full">
+          {!isPro && (
+            <a href="https://www.effectivecpmnetwork.com/xyfpimwm?key=9076051f47ffea6fc9c501efa2c56965" target="_blank" rel="noopener noreferrer" className="text-xs font-black px-4 py-2 rounded-xl bg-orange-100 dark:bg-orange-900/30 text-primary-container hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors flex items-center gap-2 no-underline w-full sm:w-auto justify-center sm:mr-auto">
+              <span className="material-symbols-outlined text-sm">favorite</span> Apoyar DocAI
+            </a>
+          )}
           <PlanBadge plan={plan} />
         </motion.div>
 
@@ -389,26 +460,46 @@ export default function Editor() {
                   </div>
                 </div>
 
-                {/* Dropzone - CSS en vez de motion.label */}
-                <label
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`relative border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center gap-4 bg-surface-bright/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] active:scale-[0.99]
-                    ${isDragging ? 'border-primary-container bg-orange-100/40 scale-[1.02] shadow-lg shadow-orange-100' : 'border-outline-variant'}
-                    ${file ? 'border-primary-container bg-orange-50/30' : 'hover:border-primary-container hover:bg-surface-container-low'}`}
-                >
-                  <input type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${isDragging || file ? 'bg-primary-container text-white' : 'bg-surface-container text-primary-container'}`}>
-                    <span className={`material-symbols-outlined text-3xl ${isDragging ? 'animate-bounce' : ''}`}>
-                      {file ? 'task_alt' : (isDragging ? 'download' : 'upload_file')}
-                    </span>
+                {!isPro && <div className="hidden sm:flex justify-center w-full mb-8"><AdBanner optionsKey="a9a5d00a37e85b3cc14bf03988c2fd2b" width={468} height={60} /></div>}
+
+                {/* Dropzone o Advertencia de AdBlock */}
+                {adBlockDetected && !isPro ? (
+                  <div className="relative border-2 border-red-400 dark:border-red-500/50 rounded-xl p-8 sm:p-12 flex flex-col items-center justify-center gap-4 bg-red-50/50 dark:bg-red-900/10 text-center transition-all duration-300 shadow-inner">
+                    <span className="material-symbols-outlined text-6xl text-red-500 drop-shadow-sm">gpp_maybe</span>
+                    <h3 className="text-2xl font-black text-red-700 dark:text-red-400">{t('editor.adblock_title')}</h3>
+                    <p className="text-sm font-bold text-red-600/80 dark:text-red-300/80 max-w-md">
+                      {t('editor.adblock_desc')}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full sm:w-auto">
+                      <button onClick={() => window.location.reload()} className="w-full sm:w-auto px-6 py-3 rounded-xl font-black bg-white text-red-600 border border-red-200 shadow-sm hover:bg-red-50 transition-colors">
+                        {t('editor.adblock_btn_disabled')}
+                      </button>
+                      <Link to="/upgrade" className="w-full sm:w-auto px-6 py-3 rounded-xl font-black bg-red-600 text-white shadow-md hover:bg-red-700 hover:shadow-lg transition-all no-underline flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-sm">workspace_premium</span> {t('editor.adblock_btn_pro')}
+                      </Link>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-on-surface text-center">
-                    {isDragging ? t('editor.drop_here') : (file ? file.name : t('editor.select_file'))}
-                  </h3>
-                  {!file && !isDragging && <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">{t('editor.drag_drop')}</p>}
-                </label>
+                ) : (
+                  <label
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`relative border-2 border-dashed rounded-xl p-12 flex flex-col items-center justify-center gap-4 bg-surface-bright/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] active:scale-[0.99]
+                      ${isDragging ? 'border-primary-container bg-orange-100/40 scale-[1.02] shadow-lg shadow-orange-100' : 'border-outline-variant'}
+                      ${file ? 'border-primary-container bg-orange-50/30' : 'hover:border-primary-container hover:bg-surface-container-low'}`}
+                  >
+                    <input type="file" className="hidden" accept=".docx" onChange={handleFileChange} />
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${isDragging || file ? 'bg-primary-container text-white' : 'bg-surface-container text-primary-container'}`}>
+                      <span className={`material-symbols-outlined text-3xl ${isDragging ? 'animate-bounce' : ''}`}>
+                        {file ? 'task_alt' : (isDragging ? 'download' : 'upload_file')}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold text-on-surface text-center">
+                      {isDragging ? t('editor.drop_here') : (file ? file.name : t('editor.select_file'))}
+                    </h3>
+                    {!file && !isDragging && <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">{t('editor.drag_drop')}</p>}
+                  </label>
+                )}
 
                 {/* Barra de progreso */}
                 {loading ? (
@@ -446,9 +537,9 @@ export default function Editor() {
                     )}
                     <button
                       onClick={handleUpload}
-                      disabled={!file || noTokensForPro}
+                      disabled={!file || noTokensForPro || adBlockDetected}
                       className={`w-full mt-8 py-5 rounded-2xl font-black text-white shadow-lg transition-all flex items-center justify-center gap-3 active:scale-95
-                        ${!file || noTokensForPro
+                        ${!file || noTokensForPro || adBlockDetected
                           ? 'bg-slate-200 dark:bg-surface-variant text-slate-400 dark:text-on-surface-variant/50 cursor-not-allowed shadow-none'
                           : 'bg-primary-container shadow-primary-container/20 hover:opacity-90'}`}
                     >
@@ -536,6 +627,8 @@ export default function Editor() {
                 )}
                 </AnimatePresence>
 
+                {!isPro && <div className="flex justify-center w-full mb-8"><AdBanner optionsKey="2711704c965197e3293a4588dedc1480" width={300} height={250} /></div>}
+
                 {/* Opciones de descarga */}
                 <div className={`flex flex-col gap-3 mb-8 p-5 rounded-2xl border transition-all ${isPro
                     ? 'bg-white/50 dark:bg-[#1a1512]/50 border-slate-200 dark:border-outline-variant/30'
@@ -609,6 +702,9 @@ export default function Editor() {
           animation: shimmer 1.5s linear infinite;
         }
       `}</style>
+      
+      {!isPro && <div className="max-w-4xl mx-auto px-gutter mb-12"><AdNative /></div>}
+
       <Footer />
     </div>
   );
