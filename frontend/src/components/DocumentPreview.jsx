@@ -299,7 +299,7 @@ function EditableParagraph({ item, edicion, fuente, onLabelChange, onTextChange 
 
 
 // ─── Hoja de papel (reutilizable en normal y fullscreen) ──────────────────────
-function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, fullscreen = false }) {
+function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, fullscreen = false, pageNumber = 1 }) {
   const fontFamily = fuente === 'Times New Roman'
     ? '"Times New Roman", Times, serif'
     : fuente === 'Arial'
@@ -340,7 +340,7 @@ function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, fu
         right: fullscreen ? '100px' : '1in',
         fontSize: '12pt', fontFamily, lineHeight: '1',
       }}>
-        1
+        {pageNumber}
       </div>
 
       {/* Párrafos */}
@@ -365,6 +365,50 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
   const [isFullscreen, setIsFullscreen] = useState(false);
   const scrollContainerRef = useRef(null);
 
+  // Chunk paragraphs into pages
+  const chunkParagraphs = (items) => {
+    const MAX_WEIGHT_PER_PAGE = 3500; // Character + spacing weight
+    const pages = [];
+    let currentPage = [];
+    let currentWeight = 0;
+    let referenceSectionStarted = false;
+
+    items.forEach((item) => {
+      let weight = item.texto ? item.texto.length : 0;
+      if (item.categoria.startsWith('TITULO')) weight += 150;
+      weight += 100; // paragraph overhead
+
+      // Forzar salto de página para la sección de Referencias (APA)
+      const isRefHeader = item.categoria.startsWith('TITULO') && item.texto && item.texto.toLowerCase().includes('referencia');
+      const isRefLine = item.categoria === 'REFERENCIA';
+      
+      if (!referenceSectionStarted && (isRefHeader || isRefLine)) {
+        if (currentPage.length > 0) {
+          pages.push(currentPage);
+          currentPage = [];
+          currentWeight = 0;
+        }
+        referenceSectionStarted = true;
+      }
+
+      if (currentWeight + weight > MAX_WEIGHT_PER_PAGE && currentPage.length > 0) {
+        pages.push(currentPage);
+        currentPage = [item];
+        currentWeight = weight;
+      } else {
+        currentPage.push(item);
+        currentWeight += weight;
+      }
+    });
+
+    if (currentPage.length > 0) {
+      pages.push(currentPage);
+    }
+    return pages.length > 0 ? pages : [[]];
+  };
+
+  const pages = chunkParagraphs(parrafos);
+
   // Cerrar con Escape + enfocar el scroll container al abrir
   useEffect(() => {
     if (!isFullscreen) return;
@@ -379,7 +423,8 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
     return () => document.removeEventListener('keydown', handler);
   }, [isFullscreen]);
 
-  const sharedProps = { parrafos, edicion, fuente, onLabelChange, onTextChange };
+  // Omitimos 'parrafos' en sharedProps para no sobrescribir pageData
+  const sharedProps = { edicion, fuente, onLabelChange, onTextChange };
 
   return (
     <>
@@ -405,7 +450,16 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
           </button>
         </div>
 
-        <PaperSheet {...sharedProps} />
+        <div className="flex flex-col gap-6 w-full items-center pb-4">
+          {pages.map((pageData, index) => (
+            <PaperSheet 
+              key={index}
+              {...sharedProps} 
+              parrafos={pageData} 
+              pageNumber={index + 1}
+            />
+          ))}
+        </div>
       </div>
 
       {/* ── Fullscreen — estilo Word Print Layout ── */}
@@ -496,13 +550,21 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
                 outline: 'none', // ocultar el anillo de foco del teclado
               }}
             >
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-              >
-                <PaperSheet {...sharedProps} fullscreen />
-              </motion.div>
+              {pages.map((pageData, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.22, delay: index * 0.05, ease: 'easeOut' }}
+                >
+                  <PaperSheet 
+                    {...sharedProps} 
+                    parrafos={pageData}
+                    pageNumber={index + 1}
+                    fullscreen 
+                  />
+                </motion.div>
+              ))}
             </div>
           </motion.div>
         )}

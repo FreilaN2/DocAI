@@ -229,7 +229,7 @@ def configurar_parrafo_estilo(paragraph, categoria: str, reglas: dict, body_text
     pf.line_spacing_rule = WD_LINE_SPACING.DOUBLE
     pf.space_before      = Pt(0)
     pf.space_after       = Pt(0)
-    pf.keep_together     = True
+    pf.keep_together     = False
     pf.first_line_indent = Inches(0)
     pf.left_indent       = Inches(0)
     paragraph.alignment  = WD_ALIGN_PARAGRAPH.LEFT
@@ -240,6 +240,7 @@ def configurar_parrafo_estilo(paragraph, categoria: str, reglas: dict, body_text
         paragraph.text       = formatear_titulo_por_nivel(paragraph.text, nivel, edicion)
         pf.space_before      = Pt(12)
         pf.space_after       = Pt(0)
+        pf.keep_with_next    = True
         pf.first_line_indent = Inches(0)
         pf.left_indent       = Inches(0)
 
@@ -283,9 +284,11 @@ def configurar_parrafo_estilo(paragraph, categoria: str, reglas: dict, body_text
         if edicion == "6ta" and nivel in {"N3", "N4", "N5"} and not paragraph.text.strip().endswith('.'):
             paragraph.text = paragraph.text.rstrip() + '.'
 
+        from docx.shared import RGBColor
         for run in paragraph.runs:
             run.bold, run.italic = bold, italic
             run.font.name, run.font.size = reglas["fuente"], Pt(reglas["tamano"])
+            run.font.color.rgb = RGBColor(0, 0, 0)
         return
 
     if categoria in {"CITA_LARGA", "BLOQUE_CITA"}:
@@ -301,7 +304,7 @@ def configurar_parrafo_estilo(paragraph, categoria: str, reglas: dict, body_text
         paragraph.alignment  = WD_ALIGN_PARAGRAPH.LEFT
         pf.first_line_indent = Inches(-reglas["sangria_francesa"])
         pf.left_indent       = Inches(reglas["sangria_francesa"])
-        pf.keep_together     = True
+        pf.keep_together     = False
         pf.space_before      = Pt(0)
         pf.space_after       = Pt(0)
         for run in paragraph.runs:
