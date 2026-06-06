@@ -10,6 +10,126 @@ import ParagraphCard from '../components/ParagraphCard';
 import DocumentPreview from '../components/DocumentPreview';
 import Footer from '../components/Footer';
 
+// ── COMPONENTES DE PUBLICIDAD (SOLO PARA USUARIOS FREE) ─────────────────
+
+// Banner de Cabecera Adaptivo: 728x90 para Pantallas Grandes / 320x50 para Móviles
+const TopResponsiveBanner = ({ isPro }) => {
+  const banner728Ref = useRef(null);
+  const banner320Ref = useRef(null);
+
+  useEffect(() => {
+    if (isPro) return;
+
+    // Cargar bloque 728x90 (Desktop)
+    if (banner728Ref.current && banner728Ref.current.childNodes.length === 0) {
+      const conf = document.createElement('script');
+      conf.type = 'text/javascript';
+      conf.innerHTML = `
+        window.atOptions = {
+          'key' : '7f2d1fbdf33a701cb4736f739bc34dd3',
+          'format' : 'iframe',
+          'height' : 90,
+          'width' : 728,
+          'params' : {}
+        };
+      `;
+      const script = document.createElement('script');
+      script.src = '//www.highperformanceformat.com/7f2d1fbdf33a701cb4736f739bc34dd3/invoke.js';
+      banner728Ref.current.appendChild(conf);
+      banner728Ref.current.appendChild(script);
+    }
+
+    // Cargar bloque 320x50 (Móviles)
+    if (banner320Ref.current && banner320Ref.current.childNodes.length === 0) {
+      const conf = document.createElement('script');
+      conf.type = 'text/javascript';
+      conf.innerHTML = `
+        window.atOptions = {
+          'key' : 'fcb577830dd336a4f57c44ec27eb9e47',
+          'format' : 'iframe',
+          'height' : 50,
+          'width' : 320,
+          'params' : {}
+        };
+      `;
+      const script = document.createElement('script');
+      script.src = '//www.highperformanceformat.com/fcb577830dd336a4f57c44ec27eb9e47/invoke.js';
+      banner320Ref.current.appendChild(conf);
+      banner320Ref.current.appendChild(script);
+    }
+  }, [isPro]);
+
+  if (isPro) return null;
+
+  return (
+    <div className="w-full flex justify-center my-4 overflow-hidden rounded-xl">
+      <div className="hidden md:block" ref={banner728Ref} />
+      <div className="block md:hidden" ref={banner320Ref} />
+    </div>
+  );
+};
+
+// Banner Nativo: Se integra de manera fluida y limpia simulando elementos del contenido
+const NativeAdContent = ({ isPro }) => {
+  const nativeRef = useRef(null);
+
+  useEffect(() => {
+    if (isPro || !nativeRef.current) return;
+
+    if (nativeRef.current.childNodes.length === 0) {
+      const script = document.createElement('script');
+      script.async = true;
+      script.setAttribute('data-cfasync', 'false');
+      script.src = '//pl29658533.effectivecpmnetwork.com/61343cf17420892297b59ec025c118e5/invoke.js';
+      nativeRef.current.appendChild(script);
+    }
+  }, [isPro]);
+
+  if (isPro) return null;
+
+  return (
+    <div className="w-full my-6 p-4 rounded-2xl border border-slate-200/60 dark:border-outline-variant/20 bg-slate-50/50 dark:bg-surface-variant/10">
+      <div id="container-61343cf17420892297b59ec025c118e5" ref={nativeRef} />
+    </div>
+  );
+};
+
+// Banner Mediano Intersecundario: 300x250 para paneles, barras laterales o bloques divisores
+const MediumAdBanner300x250 = ({ isPro }) => {
+  const boxRef = useRef(null);
+
+  useEffect(() => {
+    if (isPro || !boxRef.current) return;
+
+    if (boxRef.current.childNodes.length === 0) {
+      const conf = document.createElement('script');
+      conf.type = 'text/javascript';
+      conf.innerHTML = `
+        window.atOptions = {
+          'key' : '2711704c965197e3293a4588dedc1480',
+          'format' : 'iframe',
+          'height' : 250,
+          'width' : 300,
+          'params' : {}
+        };
+      `;
+      const script = document.createElement('script');
+      script.src = '//www.highperformanceformat.com/2711704c965197e3293a4588dedc1480/invoke.js';
+      boxRef.current.appendChild(conf);
+      boxRef.current.appendChild(script);
+    }
+  }, [isPro]);
+
+  if (isPro) return null;
+
+  return (
+    <div className="w-full flex justify-center my-6 overflow-hidden">
+      <div ref={boxRef} />
+    </div>
+  );
+};
+
+
 export default function Editor() {
   const { plan } = useParams();
   const { t } = useTranslation();
@@ -46,6 +166,50 @@ export default function Editor() {
   const token = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
   const isPro = plan === 'pro';
+
+  // ─── POPUNDER: Inyección directa en <head> para que funcione ────────
+  useEffect(() => {
+    if (isPro) return;
+
+    // Crear el script del popunder
+    const popScript = document.createElement('script');
+    popScript.type = 'text/javascript';
+    popScript.src = '//pl29658532.effectivecpmnetwork.com/d6/5a/d1/d65ad12bdfb8d4bda7b6ba55eb9a51e5.js';
+    popScript.async = true;
+    
+    // Insertar en el <head> en lugar del <body> para mejor compatibilidad
+    document.head.appendChild(popScript);
+
+    return () => {
+      if (popScript && document.head.contains(popScript)) {
+        document.head.removeChild(popScript);
+      }
+    };
+  }, [isPro]);
+
+  // ─── SOCIAL BAR: Inyección directa en <head> ───────────────────────
+  useEffect(() => {
+    if (isPro) return;
+
+    // Pequeño delay para asegurar que la página está completamente cargada
+    const timer = setTimeout(() => {
+      const socialScript = document.createElement('script');
+      socialScript.type = 'text/javascript';
+      socialScript.src = '//pl29658531.effectivecpmnetwork.com/2e/eb/73/2eeb736ae1d49b0e2537b3cb22166326.js';
+      socialScript.async = true;
+      
+      document.head.appendChild(socialScript);
+
+      // Limpiar al desmontar
+      return () => {
+        if (socialScript && document.head.contains(socialScript)) {
+          document.head.removeChild(socialScript);
+        }
+      };
+    }, 2000); // 2 segundos de delay para asegurar carga completa
+
+    return () => clearTimeout(timer);
+  }, [isPro]);
 
   // Spinner SVG optimizado
   const Spinner = ({ className = "w-6 h-6" }) => (
@@ -298,6 +462,7 @@ export default function Editor() {
       </div>
 
       <main className="pt-32 pb-24 px-gutter max-w-4xl mx-auto flex flex-col gap-8">
+
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="flex items-center justify-center sm:justify-end mb-4">
           <PlanBadge plan={plan} />
         </motion.div>
@@ -389,7 +554,7 @@ export default function Editor() {
                   </div>
                 </div>
 
-                {/* Dropzone - CSS en vez de motion.label */}
+                {/* Dropzone */}
                 <label
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
@@ -409,6 +574,9 @@ export default function Editor() {
                   </h3>
                   {!file && !isDragging && <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">{t('editor.drag_drop')}</p>}
                 </label>
+
+                {/* Publicidad Integrada de Forma Natural (Native Banner) */}
+                <NativeAdContent isPro={isPro} />
 
                 {/* Barra de progreso */}
                 {loading ? (
@@ -583,7 +751,10 @@ export default function Editor() {
                   )}
                 </div>
 
-                {/* Botón descargar - CSS en vez de motion */}
+                {/* Banner Entre Secciones (300x250 situado de forma estratégica antes del botón final) */}
+                <MediumAdBanner300x250 isPro={isPro} />
+
+                {/* Botón descargar */}
                 <button onClick={handleConfirmarYDescargar} disabled={loading}
                   className="w-full py-6 bg-primary-container text-white rounded-3xl font-black text-lg shadow-xl shadow-orange-200 hover:opacity-90 transition-all active:scale-95 flex items-center justify-center gap-3"
                 >
