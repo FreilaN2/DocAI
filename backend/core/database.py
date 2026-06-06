@@ -73,13 +73,17 @@ def _run_safe_migrations(conn):
     _add_column_if_not_exists(conn, "users", "account_locked_until", "DATETIME")
 
     # ── BLINDAJE DE DUPLICADOS EN CALIENTE ──
+    # Nota: El UNIQUE en phone se define en models.py vía SQLAlchemy.
+    # En MySQL, múltiples NULLs sí están permitidos en UNIQUE, pero
+    # strings vacíos ('') NO. El validador en schemas.py convierte
+    # phone vacío → None para evitar conflictos.
+    #
+    # Migración: convertir phone='' existentes a NULL para evitar
+    # choques con el UNIQUE constraint.
     try:
-        # Intenta crear un índice único para el teléfono en MySQL
-        conn.execute(text("CREATE UNIQUE INDEX idx_unique_users_phone ON users(phone)"))
+        conn.execute(text("UPDATE users SET phone = NULL WHERE phone = ''"))
         conn.commit()
-        logger.info("✅ Restricción UNIQUE agregada a la columna 'phone' en la tabla 'users'.")
     except Exception:
-        # Si el índice ya existe o el teléfono estaba vacío y choca, retrocede silenciosamente
         conn.rollback()
 
 

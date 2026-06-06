@@ -7,6 +7,32 @@ import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar';
 import API_BASE_URL from '../api/config';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LENGTH = 8;
+
+const getPasswordStrength = (password) => {
+  let score = 0;
+  if (password.length >= PASSWORD_MIN_LENGTH) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[a-z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  return score;
+};
+
+const getPasswordStrengthColor = (score) => {
+  if (score === 0) return 'bg-slate-200';
+  if (score <= 2) return 'bg-red-500';
+  if (score <= 3) return 'bg-amber-500';
+  return 'bg-green-500';
+};
+
+const getPasswordStrengthLabel = (score, t) => {
+  if (score === 0) return '';
+  if (score <= 2) return t('auth.password_weak');
+  if (score <= 3) return t('auth.password_medium');
+  return t('auth.password_strong');
+};
+
 // Lista de países
 const countryList = [
   { code: 'AR', name: 'Argentina' },
@@ -102,6 +128,31 @@ export default function Auth() {
         setLoading(false);
         return;
       }
+
+      if (formData.password.length < PASSWORD_MIN_LENGTH) {
+        setError(`La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`);
+        setLoading(false);
+        return;
+      }
+
+      const strength = getPasswordStrength(formData.password);
+      if (strength < 3) {
+        setError("La contraseña debe incluir mayúsculas, minúsculas y al menos un número.");
+        setLoading(false);
+        return;
+      }
+
+      if (formData.phone && formData.phone.trim().length < 7) {
+        setError("El número de teléfono debe tener al menos 7 dígitos.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    if (!EMAIL_REGEX.test(formData.email)) {
+      setError("Por favor ingresa un correo electrónico válido.");
+      setLoading(false);
+      return;
     }
 
     const endpoint = isLogin ? 'login' : 'register';
@@ -111,7 +162,7 @@ export default function Auth() {
           firstName: formData.firstName.trim(), 
           lastName: formData.lastName.trim(), 
           email: formData.email, 
-          phone: formData.phone,
+          phone: formData.phone.trim(),
           country: formData.country,
           password: formData.password 
         };
@@ -134,7 +185,12 @@ export default function Auth() {
         navigate(`/editor/${userPlan}`);
       }
     } catch (err) {
-      setError(err.response?.data?.detail || "Ocurrió un error inesperado");
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setError(detail[0]?.msg || "Ocurrió un error inesperado");
+      } else {
+        setError(detail || "Ocurrió un error inesperado");
+      }
     } finally {
       setLoading(false);
     }
@@ -309,6 +365,31 @@ export default function Auth() {
                 placeholder="••••••••" className={inputBaseClasses}
                 onChange={handleChange} value={formData.password}
               />
+              {!isLogin && formData.password && (
+                <div className="mt-2 space-y-1">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                          getPasswordStrength(formData.password) >= level
+                            ? getPasswordStrengthColor(getPasswordStrength(formData.password))
+                            : 'bg-slate-200 dark:bg-surface-variant'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider ${
+                    getPasswordStrength(formData.password) <= 2 ? 'text-red-500' :
+                    getPasswordStrength(formData.password) <= 3 ? 'text-amber-500' : 'text-green-500'
+                  }`}>
+                    {getPasswordStrengthLabel(getPasswordStrength(formData.password), t)}
+                  </p>
+                  <p className="text-[10px] text-slate-400 dark:text-on-surface-variant/60">
+                    Mín. {PASSWORD_MIN_LENGTH} caracteres, 1 mayúscula, 1 minúscula, 1 número
+                  </p>
+                </div>
+              )}
             </div>
 
             <AnimatePresence mode="wait">

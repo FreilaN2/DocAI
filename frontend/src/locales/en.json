@@ -73,7 +73,10 @@
     "no_account": "Don't have an account?",
     "have_account": "Already have an account?",
     "switch_register": "Register here",
-    "switch_login": "Login here"
+    "switch_login": "Login here",
+    "password_weak": "Weak",
+    "password_medium": "Medium",
+    "password_strong": "Strong"
   },
   "payment": {
     "processing": "Processing your payment...",

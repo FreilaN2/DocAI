@@ -8,17 +8,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from pydantic import BaseModel
 from typing import List
 import io
+from pydantic import BaseModel
+from datetime import datetime, timedelta
 from core.database import init_db
 
 # Importar motores de procesamiento
 from core.apa_rules import procesar_con_reglas
 from core.apa_ai import procesar_con_ia
-from core.auth import get_password_hash, verify_password, create_access_token
+from core.auth import (
+    get_password_hash, verify_password, create_access_token,
+    create_reset_token, verify_reset_token,
+    create_verification_token, verify_verification_token,
+    SECRET_KEY, ALGORITHM,
+)
 from core.database import get_db
 from core.models import User, Plan, TokenBalance
+from core.schemas import UserCreate, UserLogin, ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest
 from core.token_service import (
     get_available_tokens,
     consume_tokens,
@@ -31,7 +38,6 @@ from sqlalchemy.orm import Session
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
-from core.auth import SECRET_KEY, ALGORITHM
 import logging
 
 # Configurar logging
@@ -156,18 +162,6 @@ class DatosFinales(BaseModel):
     plan: str = "free"
     incluir_indice: bool = False
 
-class UserCreate(BaseModel):
-    firstName: str
-    lastName: str
-    email: str
-    phone: str
-    country: str
-    password: str
-
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
 @app.post("/register")
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     # 1. Verificar si el usuario (correo) ya existe
@@ -175,27 +169,26 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="El correo electrónico ya está registrado.")
         
-    # 2. Verificar si el teléfono ya existe (NUEVO BLOQUE)
+    # 2. Verificar si el teléfono ya existe
     if user_data.phone:
         existing_phone = db.query(User).filter(User.phone == user_data.phone).first()
         if existing_phone:
             raise HTTPException(status_code=400, detail="Este número de teléfono ya está asociado a otra cuenta.")
     
-    # 3. Crear nuevo usuario (Incluyendo el país)
+    # 3. Crear nuevo usuario
     new_user = User(
-        first_name=user_data.firstName,
-        last_name=user_data.lastName,
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
         email=user_data.email,
         phone=user_data.phone,
-        country=user_data.country, # <-- Campo de país agregado
+        country=user_data.country,
         password_hash=get_password_hash(user_data.password),
-        plan_id=1 # Plan Free por defecto
+        plan_id=1
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    # 4. Crear token de acceso
     access_token = create_access_token(data={"sub": new_user.email})
     return {
         "status": "success", 
@@ -210,21 +203,116 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/login")
 async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+
     user = db.query(User).filter(User.email == credentials.email).first()
+
+    # Verificar bloqueo temporal por intentos fallidos
+    if user and user.account_locked_until and now < user.account_locked_until:
+        remaining = int((user.account_locked_until - now).total_seconds() / 60)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Cuenta bloqueada temporalmente. Intenta de nuevo en {remaining} minuto(s)."
+        )
+
     if not user or not verify_password(credentials.password, user.password_hash):
+        if user:
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= 5:
+                user.account_locked_until = now + timedelta(minutes=15)
+            db.commit()
         raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos.")
-    
+
+    # Reiniciar contadores al iniciar sesión correctamente
+    user.failed_login_attempts = 0
+    user.account_locked_until = None
+    user.last_login_at = now
+    db.commit()
+
     access_token = create_access_token(data={"sub": user.email})
     return {
-        "status": "success", 
-        "access_token": access_token, 
-        "token_type": "bearer", 
+        "status": "success",
+        "access_token": access_token,
+        "token_type": "bearer",
         "user": {
-            "email": user.email, 
+            "email": user.email,
             "firstName": user.first_name,
             "plan": user.plan.name if user.plan else "free"
         }
     }
+
+
+@app.post("/logout")
+async def logout(
+    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
+):
+    return {"status": "success", "message": "Sesión cerrada correctamente."}
+
+
+@app.post("/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+    if not user:
+        return {"status": "success", "message": "Si el correo existe, recibirás un enlace para restablecer tu contraseña."}
+
+    reset_token = create_reset_token(data.email)
+    logger.info(f"🔑 Token de recuperación para {data.email}: {reset_token}")
+
+    return {
+        "status": "success",
+        "message": "Revisa tu correo electrónico para restablecer tu contraseña.",
+        "reset_token": reset_token,
+    }
+
+
+@app.post("/reset-password")
+async def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
+    email = verify_reset_token(data.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="El enlace de recuperación es inválido o ha expirado.")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    user.password_hash = get_password_hash(data.new_password)
+    db.commit()
+
+    return {"status": "success", "message": "Contraseña actualizada correctamente."}
+
+
+@app.post("/send-verification")
+async def send_verification(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
+    if not user:
+        return {"status": "success", "message": "Si el correo existe, recibirás un enlace de verificación."}
+
+    verify_token = create_verification_token(data.email)
+    logger.info(f"✅ Token de verificación para {data.email}: {verify_token}")
+
+    return {
+        "status": "success",
+        "message": "Revisa tu correo electrónico para verificar tu cuenta.",
+        "verify_token": verify_token,
+    }
+
+
+@app.post("/verify-email")
+async def verify_email(data: VerifyEmailRequest, db: Session = Depends(get_db)):
+    email = verify_verification_token(data.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="El enlace de verificación es inválido o ha expirado.")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    user.is_email_verified = True
+    db.commit()
+
+    return {"status": "success", "message": "Correo electrónico verificado correctamente."}
+
 
 def añadir_marca_de_agua(doc):
     """Añade una marca de agua en el pie de página para el plan Free"""

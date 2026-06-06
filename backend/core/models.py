@@ -26,7 +26,7 @@ class User(Base):
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, index=True, nullable=False)
-    phone = Column(String(20), unique=True, nullable=True)
+    phone = Column(String(20), unique=True, nullable=True, default=None)
     password_hash = Column(String(255), nullable=False)
     
     # ── Campos de Seguridad y Facturación ──
