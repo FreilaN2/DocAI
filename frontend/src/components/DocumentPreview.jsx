@@ -297,8 +297,9 @@ function EditableParagraph({ item, edicion, fuente, onLabelChange, onTextChange 
   );
 }
 
-// ─── Componente principal de vista previa ─────────────────────────────────────
-export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChange, onTextChange }) {
+
+// ─── Hoja de papel (reutilizable en normal y fullscreen) ──────────────────────
+function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, fullscreen = false }) {
   const fontFamily = fuente === 'Times New Roman'
     ? '"Times New Roman", Times, serif'
     : fuente === 'Arial'
@@ -310,53 +311,203 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
     : fuente;
 
   return (
-    <div className="flex flex-col items-center w-full" style={{ background: '#e8e8e8', borderRadius: '12px', padding: '24px 0', minHeight: '600px' }}>
-      {/* Hoja de papel */}
-      <div
-        style={{
-          width: '8.5in',
-          maxWidth: '100%',
-          minHeight: '11in',
-          background: '#fff',
-          boxShadow: '0 4px 32px rgba(0,0,0,0.18)',
-          borderRadius: '2px',
-          padding: '1in',
-          paddingLeft: '1.25in',
-          fontFamily,
-          fontSize: '12pt',
-          lineHeight: '2',
-          color: '#000',
-          position: 'relative',
-        }}
-      >
-        {/* Número de página (simulado) */}
-        <div style={{
-          position: 'absolute', top: '0.4in', right: '1in',
-          fontSize: '12pt', fontFamily, lineHeight: '1',
-        }}>
-          1
-        </div>
-
-        {/* Párrafos */}
-        <div style={{ paddingTop: '0.2in' }}>
-          {parrafos.map((item) => (
-            <EditableParagraph
-              key={item.id}
-              item={item}
-              edicion={edicion}
-              fuente={fuente}
-              onLabelChange={onLabelChange}
-              onTextChange={onTextChange}
-            />
-          ))}
-        </div>
+    <div
+      style={{
+        // En fullscreen: ancho fijo (8.5in @ 96dpi = 816px), sin maxWidth
+        // En vista normal: maxWidth 100% para que no desborde
+        width: fullscreen ? '816px' : '8.5in',
+        maxWidth: fullscreen ? 'none' : '100%',
+        minHeight: fullscreen ? '1056px' : '11in', // 11in @ 96dpi = 1056px
+        background: '#fff',
+        boxShadow: fullscreen
+          ? '0 8px 48px rgba(0,0,0,0.45)'
+          : '0 4px 32px rgba(0,0,0,0.18)',
+        borderRadius: '2px',
+        padding: fullscreen ? '96px 100px 96px 120px' : '1in',
+        paddingLeft: fullscreen ? '120px' : '1.25in',
+        fontFamily,
+        fontSize: '12pt',
+        lineHeight: '2',
+        color: '#000',
+        position: 'relative',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Número de página simulado */}
+      <div style={{
+        position: 'absolute',
+        top: fullscreen ? '38px' : '0.4in',
+        right: fullscreen ? '100px' : '1in',
+        fontSize: '12pt', fontFamily, lineHeight: '1',
+      }}>
+        1
       </div>
 
-      {/* Hint */}
-      <p className="mt-4 text-xs text-slate-500 font-bold text-center flex items-center gap-1">
-        <span className="material-symbols-outlined text-sm">edit</span>
-        Clic en cualquier párrafo para editar · Hover para cambiar categoría
-      </p>
+      {/* Párrafos */}
+      <div style={{ paddingTop: fullscreen ? '20px' : '0.2in' }}>
+        {parrafos.map((item) => (
+          <EditableParagraph
+            key={item.id}
+            item={item}
+            edicion={edicion}
+            fuente={fuente}
+            onLabelChange={onLabelChange}
+            onTextChange={onTextChange}
+          />
+        ))}
+      </div>
     </div>
   );
 }
+
+// ─── Componente principal de vista previa ─────────────────────────────
+export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChange, onTextChange }) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const scrollContainerRef = useRef(null);
+
+  // Cerrar con Escape + enfocar el scroll container al abrir
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    // Foco al contenedor para que la rueda del mouse funcione de inmediato
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.focus();
+    }
+
+    const handler = (e) => { if (e.key === 'Escape') setIsFullscreen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isFullscreen]);
+
+  const sharedProps = { parrafos, edicion, fuente, onLabelChange, onTextChange };
+
+  return (
+    <>
+      {/* ── Vista normal ── */}
+      <div
+        className="flex flex-col items-center w-full"
+        style={{ background: '#e8e8e8', borderRadius: '12px', padding: '24px 0 16px', minHeight: '600px' }}
+      >
+        {/* Barra de herramientas */}
+        <div className="flex items-center justify-between w-full px-4 mb-4" style={{ maxWidth: '8.5in' }}>
+          <p className="text-xs text-slate-500 font-bold flex items-center gap-1">
+            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>edit</span>
+            Clic para editar · Hover para cambiar categoría
+          </p>
+          <button
+            onClick={() => setIsFullscreen(true)}
+            title="Pantalla completa (F)"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black text-slate-600 bg-white hover:bg-slate-100 shadow-sm transition-all hover:scale-105 active:scale-95"
+            style={{ border: '1px solid #e2e8f0' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>fullscreen</span>
+            Pantalla completa
+          </button>
+        </div>
+
+        <PaperSheet {...sharedProps} />
+      </div>
+
+      {/* ── Fullscreen — estilo Word Print Layout ── */}
+      <AnimatePresence>
+        {isFullscreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#525659', // Gris clásico de Word
+            }}
+          >
+            {/* ── Ribbon mínimo (pegado arriba, no intrusivo) ── */}
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '0 16px',
+                height: '40px',
+                background: '#2b2b2b',
+                flexShrink: 0,
+                userSelect: 'none',
+              }}
+            >
+              {/* Izquierda: ícono + nombre */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#9ca3af' }}>description</span>
+                <span style={{ color: '#d1d5db', fontSize: '12px', fontWeight: 600, letterSpacing: '0.01em' }}>
+                  Documento APA
+                </span>
+                <span style={{
+                  color: '#4b5563', fontSize: '10px', fontWeight: 700,
+                  background: '#1f1f1f', padding: '1px 7px',
+                  borderRadius: '4px', letterSpacing: '0.05em',
+                }}>
+                  VISTA PREVIA
+                </span>
+              </div>
+
+              {/* Derecha: hint ESC + botón salir */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#4b5563', fontSize: '11px', fontWeight: 600 }}>ESC para salir</span>
+                <button
+                  onClick={() => setIsFullscreen(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    padding: '4px 10px', borderRadius: '6px',
+                    background: 'transparent',
+                    border: '1px solid #374151',
+                    color: '#9ca3af', fontSize: '11px', fontWeight: 700,
+                    cursor: 'pointer', transition: 'all 0.12s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#ef4444';
+                    e.currentTarget.style.borderColor = '#ef4444';
+                    e.currentTarget.style.color = '#fff';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = '#374151';
+                    e.currentTarget.style.color = '#9ca3af';
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+                  Salir
+                </button>
+              </div>
+            </div>
+
+            {/* ── Área de páginas (scroll vertical, como Word) ── */}
+            <div
+              ref={scrollContainerRef}
+              tabIndex={0}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                overflowX: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                paddingTop: '32px',
+                paddingBottom: '64px',
+                gap: '24px',
+                outline: 'none', // ocultar el anillo de foco del teclado
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+              >
+                <PaperSheet {...sharedProps} fullscreen />
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
