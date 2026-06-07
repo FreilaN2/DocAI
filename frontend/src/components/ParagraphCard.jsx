@@ -13,29 +13,41 @@ export default function ParagraphCard({ item, onLabelChange }) {
   const currentCat = CATEGORIES_LIST.find(c => c.id === item.categoria) || CATEGORIES_LIST[3];
 
   return (
-    <div className={`group p-5 rounded-2xl border-2 transition-all duration-300 bg-white dark:bg-surface ${currentCat.border} hover:shadow-md`}>
-      <div className="flex flex-col md:flex-row gap-4">
+    <div className={`group p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl border-2 transition-all duration-300 bg-white dark:bg-surface ${currentCat.border} hover:shadow-md`}>
+      <div className="flex flex-col gap-3 sm:gap-4">
+        {/* Texto del párrafo */}
         <div className="flex-grow">
-          <p className="text-sm leading-relaxed text-on-surface font-medium italic mb-4">
+          <p className="text-xs sm:text-sm leading-relaxed text-on-surface font-medium italic mb-3 sm:mb-4">
             "{item.texto}"
           </p>
           
-          <div className="flex flex-wrap items-center gap-3">
-            <span className={`text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest ${currentCat.light} ${currentCat.text}`}>
+          {/* Controles de categoría */}
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+            {/* Badge de categoría actual */}
+            <span className={`text-[9px] sm:text-[10px] font-black px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg uppercase tracking-widest whitespace-nowrap ${currentCat.light} ${currentCat.text}`}>
               {t(`categories.${currentCat.id}`)}
             </span>
             
-            <div className="h-4 w-[1px] bg-slate-200 dark:bg-outline-variant/30 hidden md:block"></div>
+            {/* Separador - visible en sm+ */}
+            <div className="hidden sm:block h-4 w-[1px] bg-slate-200 dark:bg-outline-variant/30"></div>
             
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-slate-400 dark:text-on-surface-variant uppercase tracking-tighter">Cambiar a:</span>
-              <div className="flex gap-1.5">
+            {/* Selector de categorías */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-on-surface-variant uppercase tracking-tighter whitespace-nowrap">
+                Cambiar a:
+              </span>
+              <div className="flex gap-1 sm:gap-1.5 flex-wrap">
                 {CATEGORIES_LIST.map(cat => (
                   <button
                     key={cat.id}
                     title={t(`categories.${cat.id}`)}
                     onClick={() => onLabelChange(item.id, cat.id)}
-                    className={`w-6 h-6 rounded-full transition-all transform hover:scale-125 ${cat.color} ${item.categoria === cat.id ? 'ring-2 ring-offset-2 dark:ring-offset-[#1a1512] ring-slate-400 dark:ring-on-surface-variant scale-110' : 'opacity-40 hover:opacity-100'}`}
+                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full transition-all transform hover:scale-125 active:scale-110 ${cat.color} ${
+                      item.categoria === cat.id 
+                        ? 'ring-2 ring-offset-2 dark:ring-offset-[#1a1512] ring-slate-400 dark:ring-on-surface-variant scale-110' 
+                        : 'opacity-40 hover:opacity-100'
+                    }`}
+                    aria-label={t(`categories.${cat.id}`)}
                   />
                 ))}
               </div>

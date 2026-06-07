@@ -19,8 +19,8 @@ const countryList = [
   { code: 'OT', name: 'Otro' }
 ];
 
-const inputBaseClasses = "w-full py-4 pr-4 pl-12 h-[56px] bg-black/5 dark:bg-black/20 border border-outline/30 rounded-xl focus:border-primary-container focus:bg-primary-container/10 outline-none text-sm transition-colors duration-200 text-on-surface placeholder:text-on-surface-variant/50";
-const labelBaseClasses = "text-[11px] font-bold text-on-surface-variant uppercase tracking-widest ml-1 mb-1 block";
+const inputBaseClasses = "w-full py-3 sm:py-4 pr-4 pl-10 sm:pl-12 h-[48px] sm:h-[52px] md:h-[56px] bg-black/5 dark:bg-black/20 border border-outline/30 rounded-xl focus:border-primary-container focus:bg-primary-container/10 outline-none text-sm transition-colors duration-200 text-on-surface placeholder:text-on-surface-variant/50";
+const labelBaseClasses = "text-[10px] sm:text-[11px] font-bold text-on-surface-variant uppercase tracking-widest ml-1 mb-1 block";
 
 // ─── EyeBall OPTIMIZADO (recibe mouseX/mouseY del padre) ───
 const EyeBall = React.memo(({ size = 48, pupilSize = 16, maxDistance = 10, eyeColor = "white", pupilColor = "black", isBlinking = false, forceLookX, forceLookY, mouseX, mouseY }) => {
@@ -341,312 +341,321 @@ export default function Auth() {
 
   const hasPassword = formData.password.length > 0;
 
-  // Spinner SVG (evita motion.div infinito)
+  // Spinner SVG
   const Spinner = () => (
-    <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <svg className="animate-spin w-4 h-4 sm:w-5 sm:h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
   );
 
   return (
-    <div className="bg-background min-h-screen text-on-background relative flex flex-col lg:flex-row overflow-x-hidden">
+    <div className="bg-background min-h-screen text-on-background relative flex flex-col overflow-x-hidden">
       <Navbar />
 
-      {/* Left Content Section - Personajes animados */}
-      <div className="relative hidden lg:flex flex-col justify-between bg-surface p-12 text-on-surface flex-1 overflow-hidden h-screen pt-24 sticky top-0">
-        <div className="relative z-20 flex flex-col h-full justify-start pt-8 xl:pt-16">
-          <div className="text-left mb-auto max-w-sm mx-auto w-full">
-            <h2 className="text-5xl font-black mb-4 tracking-tight">{t('auth.left_title')}</h2>
-            <p className="text-on-surface-variant text-lg">{t('auth.left_desc')}</p>
-          </div>
+      <div className="flex flex-col lg:flex-row flex-1">
+        {/* Left Content Section - Personajes animados (Desktop only) */}
+        <div className="relative hidden lg:flex flex-col justify-between bg-surface p-8 xl:p-12 text-on-surface flex-1 overflow-hidden lg:h-screen lg:sticky lg:top-0 pt-20 lg:pt-24">
+          <div className="relative z-20 flex flex-col h-full justify-start pt-4 xl:pt-16">
+            <div className="text-left mb-auto max-w-sm mx-auto w-full">
+              <h2 className="text-3xl xl:text-4xl 2xl:text-5xl font-black mb-3 xl:mb-4 tracking-tight">
+                {t('auth.left_title')}
+              </h2>
+              <p className="text-on-surface-variant text-base xl:text-lg">
+                {t('auth.left_desc')}
+              </p>
+            </div>
 
-          <div className="relative flex items-end justify-center h-[500px]">
-            <div className="relative transform origin-bottom scale-[1.15] xl:scale-[1.35] transition-transform duration-500" style={{ width: '550px', height: '400px' }}>
-              {/* Purple */}
+            <div className="relative flex items-end justify-center h-[350px] xl:h-[450px] 2xl:h-[500px]">
               <div 
-                ref={purpleRef}
-                className="absolute bottom-0 transition-all duration-700 ease-in-out"
-                style={{
-                  left: '70px', width: '180px',
-                  height: (isTyping || (hasPassword && !showPassword)) ? '440px' : '400px',
-                  backgroundColor: '#6C3FF5', borderRadius: '10px 10px 0 0', zIndex: 1,
-                  transform: (hasPassword && showPassword)
-                    ? 'skewX(0deg)'
-                    : (isTyping || (hasPassword && !showPassword))
-                      ? `skewX(${(purplePos.bodySkew || 0) - 12}deg) translateX(40px)` 
-                      : `skewX(${purplePos.bodySkew || 0}deg)`,
-                  transformOrigin: 'bottom center',
-                }}
+                className="relative transform origin-bottom scale-[0.85] xl:scale-[1.0] 2xl:scale-[1.15] transition-transform duration-500" 
+                style={{ width: '550px', height: '400px' }}
               >
+                {/* Purple */}
                 <div 
-                  className="absolute flex gap-8 transition-all duration-700 ease-in-out"
+                  ref={purpleRef}
+                  className="absolute bottom-0 transition-all duration-700 ease-in-out"
                   style={{
-                    left: (hasPassword && showPassword) ? '20px' : isLookingAtEachOther ? '55px' : `${45 + purplePos.faceX}px`,
-                    top: (hasPassword && showPassword) ? '35px' : isLookingAtEachOther ? '65px' : `${40 + purplePos.faceY}px`,
-                  }}
-                >
-                  <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
-                  <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
-                </div>
-              </div>
-
-              {/* Black */}
-              <div 
-                ref={blackRef}
-                className="absolute bottom-0 transition-all duration-700 ease-in-out"
-                style={{
-                  left: '240px', width: '120px', height: '310px',
-                  backgroundColor: '#2D2D2D', borderRadius: '8px 8px 0 0', zIndex: 2,
-                  transform: (hasPassword && showPassword)
-                    ? 'skewX(0deg)'
-                    : isLookingAtEachOther
-                      ? `skewX(${(blackPos.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
+                    left: '70px', width: '180px',
+                    height: (isTyping || (hasPassword && !showPassword)) ? '440px' : '400px',
+                    backgroundColor: '#6C3FF5', borderRadius: '10px 10px 0 0', zIndex: 1,
+                    transform: (hasPassword && showPassword)
+                      ? 'skewX(0deg)'
                       : (isTyping || (hasPassword && !showPassword))
-                        ? `skewX(${(blackPos.bodySkew || 0) * 1.5}deg)` 
-                        : `skewX(${blackPos.bodySkew || 0}deg)`,
-                  transformOrigin: 'bottom center',
-                }}
-              >
-                <div 
-                  className="absolute flex gap-6 transition-all duration-700 ease-in-out"
-                  style={{
-                    left: (hasPassword && showPassword) ? '10px' : isLookingAtEachOther ? '32px' : `${26 + blackPos.faceX}px`,
-                    top: (hasPassword && showPassword) ? '28px' : isLookingAtEachOther ? '12px' : `${32 + blackPos.faceY}px`,
+                        ? `skewX(${(purplePos.bodySkew || 0) - 12}deg) translateX(40px)` 
+                        : `skewX(${purplePos.bodySkew || 0}deg)`,
+                    transformOrigin: 'bottom center',
                   }}
                 >
-                  <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
-                  <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
+                  <div 
+                    className="absolute flex gap-8 transition-all duration-700 ease-in-out"
+                    style={{
+                      left: (hasPassword && showPassword) ? '20px' : isLookingAtEachOther ? '55px' : `${45 + purplePos.faceX}px`,
+                      top: (hasPassword && showPassword) ? '35px' : isLookingAtEachOther ? '65px' : `${40 + purplePos.faceY}px`,
+                    }}
+                  >
+                    <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
+                    <EyeBall size={18} pupilSize={7} maxDistance={5} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isPurpleBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined} forceLookY={(hasPassword && showPassword) ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined} />
+                  </div>
                 </div>
-              </div>
 
-              {/* Orange */}
-              <div 
-                ref={orangeRef}
-                className="absolute bottom-0 transition-all duration-700 ease-in-out"
-                style={{
-                  left: '0px', width: '240px', height: '200px', zIndex: 3,
-                  backgroundColor: '#FF9B6B', borderRadius: '120px 120px 0 0',
-                  transform: (hasPassword && showPassword) ? 'skewX(0deg)' : `skewX(${orangePos.bodySkew || 0}deg)`,
-                  transformOrigin: 'bottom center',
-                }}
-              >
+                {/* Black */}
                 <div 
-                  className="absolute flex gap-8 transition-all duration-200 ease-out"
+                  ref={blackRef}
+                  className="absolute bottom-0 transition-all duration-700 ease-in-out"
                   style={{
-                    left: (hasPassword && showPassword) ? '50px' : `${82 + (orangePos.faceX || 0)}px`,
-                    top: (hasPassword && showPassword) ? '85px' : `${90 + (orangePos.faceY || 0)}px`,
+                    left: '240px', width: '120px', height: '310px',
+                    backgroundColor: '#2D2D2D', borderRadius: '8px 8px 0 0', zIndex: 2,
+                    transform: (hasPassword && showPassword)
+                      ? 'skewX(0deg)'
+                      : isLookingAtEachOther
+                        ? `skewX(${(blackPos.bodySkew || 0) * 1.5 + 10}deg) translateX(20px)`
+                        : (isTyping || (hasPassword && !showPassword))
+                          ? `skewX(${(blackPos.bodySkew || 0) * 1.5}deg)` 
+                          : `skewX(${blackPos.bodySkew || 0}deg)`,
+                    transformOrigin: 'bottom center',
                   }}
                 >
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  <div 
+                    className="absolute flex gap-6 transition-all duration-700 ease-in-out"
+                    style={{
+                      left: (hasPassword && showPassword) ? '10px' : isLookingAtEachOther ? '32px' : `${26 + blackPos.faceX}px`,
+                      top: (hasPassword && showPassword) ? '28px' : isLookingAtEachOther ? '12px' : `${32 + blackPos.faceY}px`,
+                    }}
+                  >
+                    <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
+                    <EyeBall size={16} pupilSize={6} maxDistance={4} eyeColor="white" pupilColor="#2D2D2D" isBlinking={isBlackBlinking} mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? 0 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : isLookingAtEachOther ? -4 : undefined} />
+                  </div>
                 </div>
-              </div>
 
-              {/* Yellow */}
-              <div 
-                ref={yellowRef}
-                className="absolute bottom-0 transition-all duration-700 ease-in-out"
-                style={{
-                  left: '310px', width: '140px', height: '230px', backgroundColor: '#E8D754',
-                  borderRadius: '70px 70px 0 0', zIndex: 4,
-                  transform: (hasPassword && showPassword) ? 'skewX(0deg)' : `skewX(${yellowPos.bodySkew || 0}deg)`,
-                  transformOrigin: 'bottom center',
-                }}
-              >
+                {/* Orange */}
                 <div 
-                  className="absolute flex gap-6 transition-all duration-200 ease-out"
+                  ref={orangeRef}
+                  className="absolute bottom-0 transition-all duration-700 ease-in-out"
                   style={{
-                    left: (hasPassword && showPassword) ? '20px' : `${52 + (yellowPos.faceX || 0)}px`,
-                    top: (hasPassword && showPassword) ? '35px' : `${40 + (yellowPos.faceY || 0)}px`,
+                    left: '0px', width: '240px', height: '200px', zIndex: 3,
+                    backgroundColor: '#FF9B6B', borderRadius: '120px 120px 0 0',
+                    transform: (hasPassword && showPassword) ? 'skewX(0deg)' : `skewX(${orangePos.bodySkew || 0}deg)`,
+                    transformOrigin: 'bottom center',
                   }}
                 >
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
-                  <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  <div 
+                    className="absolute flex gap-8 transition-all duration-200 ease-out"
+                    style={{
+                      left: (hasPassword && showPassword) ? '50px' : `${82 + (orangePos.faceX || 0)}px`,
+                      top: (hasPassword && showPassword) ? '85px' : `${90 + (orangePos.faceY || 0)}px`,
+                    }}
+                  >
+                    <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                    <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  </div>
                 </div>
+
+                {/* Yellow */}
                 <div 
-                  className="absolute w-20 h-[4px] bg-[#2D2D2D] rounded-full transition-all duration-200 ease-out"
+                  ref={yellowRef}
+                  className="absolute bottom-0 transition-all duration-700 ease-in-out"
                   style={{
-                    left: (hasPassword && showPassword) ? '10px' : `${40 + (yellowPos.faceX || 0)}px`,
-                    top: (hasPassword && showPassword) ? '88px' : `${88 + (yellowPos.faceY || 0)}px`,
+                    left: '310px', width: '140px', height: '230px', backgroundColor: '#E8D754',
+                    borderRadius: '70px 70px 0 0', zIndex: 4,
+                    transform: (hasPassword && showPassword) ? 'skewX(0deg)' : `skewX(${yellowPos.bodySkew || 0}deg)`,
+                    transformOrigin: 'bottom center',
                   }}
-                />
+                >
+                  <div 
+                    className="absolute flex gap-6 transition-all duration-200 ease-out"
+                    style={{
+                      left: (hasPassword && showPassword) ? '20px' : `${52 + (yellowPos.faceX || 0)}px`,
+                      top: (hasPassword && showPassword) ? '35px' : `${40 + (yellowPos.faceY || 0)}px`,
+                    }}
+                  >
+                    <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                    <Pupil size={12} maxDistance={5} pupilColor="#2D2D2D" mouseX={mouseX} mouseY={mouseY} forceLookX={(hasPassword && showPassword) ? -5 : undefined} forceLookY={(hasPassword && showPassword) ? -4 : undefined} />
+                  </div>
+                  <div 
+                    className="absolute w-20 h-[4px] bg-[#2D2D2D] rounded-full transition-all duration-200 ease-out"
+                    style={{
+                      left: (hasPassword && showPassword) ? '10px' : `${40 + (yellowPos.faceX || 0)}px`,
+                      top: (hasPassword && showPassword) ? '88px' : `${88 + (yellowPos.faceY || 0)}px`,
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Right Login Section */}
-      <div className="flex-1 flex flex-col items-center px-6 md:px-12 lg:px-24 justify-center bg-surface h-screen overflow-y-auto custom-scrollbar pt-20 pb-12">
-        <div className="w-full max-w-[520px] shrink-0">
-          <div className="mb-10 text-center lg:text-left">
-            <h1 className="text-3xl font-black tracking-tight mb-2 text-on-surface">
-              {isLogin ? t('auth.login_title') : t('auth.register_title')}
-            </h1>
-            <p className="text-on-surface-variant text-sm font-medium">
-              {isLogin ? t('auth.no_account') : t('auth.have_account')}{' '}
-              <button
-                type="button"
-                onClick={() => { setIsLogin(!isLogin); setError(""); }}
-                className="text-primary-container font-bold hover:text-primary transition-colors hover:underline focus:outline-none"
-              >
-                {isLogin ? t('auth.switch_register') : t('auth.switch_login')}
-              </button>
-            </p>
-          </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-error/10 text-error p-4 rounded-xl text-xs font-bold border border-error/20 mb-6 flex items-center gap-3 shadow-inner"
-            >
-              <span className="material-symbols-outlined text-lg">error</span>
-              {error}
-            </motion.div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <AnimatePresence mode="wait">
-              {!isLogin && (
-                <motion.div
-                  key="register-fields"
-                  initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                  animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
-                  exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-4"
+        {/* Right Login Section */}
+        <div className="flex-1 flex flex-col items-center px-4 sm:px-6 md:px-8 lg:px-12 xl:px-24 justify-center bg-surface min-h-screen lg:min-h-0 lg:h-screen overflow-y-auto custom-scrollbar pt-20 pb-8 sm:pb-12 lg:pt-24">
+          <div className="w-full max-w-[440px] lg:max-w-[480px] xl:max-w-[520px] shrink-0">
+            <div className="mb-6 sm:mb-8 lg:mb-10 text-center lg:text-left">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight mb-2 text-on-surface">
+                {isLogin ? t('auth.login_title') : t('auth.register_title')}
+              </h1>
+              <p className="text-on-surface-variant text-xs sm:text-sm font-medium">
+                {isLogin ? t('auth.no_account') : t('auth.have_account')}{' '}
+                <button
+                  type="button"
+                  onClick={() => { setIsLogin(!isLogin); setError(""); }}
+                  className="text-primary-container font-bold hover:text-primary transition-colors hover:underline focus:outline-none"
                 >
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className={labelBaseClasses}>{t('auth.first_name')}</label>
-                      <div className="relative">
-                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">person</span>
-                        <input type="text" name="firstName" required placeholder="John" className={inputBaseClasses} onChange={handleChange} value={formData.firstName} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className={labelBaseClasses}>{t('auth.last_name')}</label>
-                      <div className="relative">
-                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">person</span>
-                        <input type="text" name="lastName" required placeholder="Doe" className={inputBaseClasses} onChange={handleChange} value={formData.lastName} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className={labelBaseClasses}>{t('auth.phone')}</label>
-                      <div className="relative">
-                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">call</span>
-                        <input type="tel" name="phone" required placeholder="+1 234 567 890" className={inputBaseClasses} onChange={handleChange} value={formData.phone} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1" ref={dropdownRef}>
-                      <label className={labelBaseClasses}>{t('auth.country')}</label>
-                      <div className="relative">
-                        <button type="button" onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                          className={`${inputBaseClasses} flex justify-between items-center ${isCountryDropdownOpen ? 'border-primary-container bg-primary/10' : ''} ${!formData.country ? 'text-slate-500' : 'text-on-surface'}`}>
-                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">public</span>
-                          <span className="truncate pr-2">{selectedCountryName}</span>
-                          <span className="material-symbols-outlined text-on-surface-variant text-xl transition-transform duration-300" style={{ transform: isCountryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>keyboard_arrow_down</span>
-                        </button>
-
-                        <AnimatePresence>
-                          {isCountryDropdownOpen && (
-                            <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.15 }}
-                              className="absolute z-50 w-full mt-2 bg-surface backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-xl overflow-hidden origin-top">
-                              <ul className="max-h-48 overflow-y-auto custom-scrollbar py-2">
-                                {countryList.map((country) => (
-                                  <li key={country.code} onClick={() => handleCountrySelect(country.code)}
-                                    className={`px-4 py-2 text-sm cursor-pointer transition-colors duration-150 flex items-center justify-between ${formData.country === country.code ? 'bg-primary-container text-white font-bold' : 'text-on-surface hover:bg-primary-container/10'}`}>
-                                    <span>{country.name}</span>
-                                    {formData.country === country.code && <span className="material-symbols-outlined text-lg">check</span>}
-                                  </li>
-                                ))}
-                              </ul>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="space-y-1">
-              <label className={labelBaseClasses}>{t('auth.email')}</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">mail</span>
-                <input type="email" name="email" required placeholder="email@example.com" className={inputBaseClasses} onChange={handleChange} value={formData.email} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className={labelBaseClasses}>{t('auth.password')}</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">lock</span>
-                <input type={showPassword ? "text" : "password"} name="password" required placeholder="••••••••" className={inputBaseClasses} onChange={handleChange} value={formData.password} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-on-surface transition-colors focus:outline-none">
-                  <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  {isLogin ? t('auth.switch_register') : t('auth.switch_login')}
                 </button>
-              </div>
+              </p>
             </div>
 
-            <AnimatePresence mode="wait">
-              {!isLogin && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}
-                  className="space-y-1 overflow-hidden">
-                  <label className={labelBaseClasses}>{t('auth.confirm_password')}</label>
-                  <div className="relative">
-                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">lock</span>
-                    <input type={showPassword ? "text" : "password"} name="confirmPassword" required placeholder="••••••••" className={inputBaseClasses} onChange={handleChange} value={formData.confirmPassword} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-error/10 text-error p-3 sm:p-4 rounded-xl text-xs font-bold border border-error/20 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3 shadow-inner"
+              >
+                <span className="material-symbols-outlined text-base sm:text-lg flex-shrink-0">error</span>
+                <span>{error}</span>
+              </motion.div>
+            )}
 
-            {/* Botón submit OPTIMIZADO - CSS en vez de framer-motion */}
-            <button
-              disabled={loading}
-              type="submit"
-              className={`w-full h-[56px] rounded-xl font-black text-base shadow-lg transition-all duration-200 mt-6 flex items-center justify-center gap-3 active:scale-[0.98] hover:-translate-y-0.5
-                ${loading ? 'bg-surface-variant text-on-surface-variant/50 cursor-not-allowed shadow-none' : 'bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-primary/20'}`}
-            >
-              {loading ? (
-                <Spinner />
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-xl">{isLogin ? 'login' : 'person_add'}</span>
-                  {isLogin ? t('auth.login_btn') : t('auth.register_btn')}
-                </>
-              )}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              <AnimatePresence mode="wait">
+                {!isLogin && (
+                  <motion.div
+                    key="register-fields"
+                    initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                    animate={{ opacity: 1, height: 'auto', transitionEnd: { overflow: 'visible' } }}
+                    exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                    transition={{ duration: 0.3 }}
+                    className="space-y-3 sm:space-y-4"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1">
+                        <label className={labelBaseClasses}>{t('auth.first_name')}</label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">person</span>
+                          <input type="text" name="firstName" required placeholder="John" className={inputBaseClasses} onChange={handleChange} value={formData.firstName} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className={labelBaseClasses}>{t('auth.last_name')}</label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">person</span>
+                          <input type="text" name="lastName" required placeholder="Doe" className={inputBaseClasses} onChange={handleChange} value={formData.lastName} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                        </div>
+                      </div>
+                    </div>
 
-          {/* Social Login */}
-          <div className="mt-8">
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-outline/20"></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1">
+                        <label className={labelBaseClasses}>{t('auth.phone')}</label>
+                        <div className="relative">
+                          <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">call</span>
+                          <input type="tel" name="phone" required placeholder="+1 234 567 890" className={inputBaseClasses} onChange={handleChange} value={formData.phone} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1" ref={dropdownRef}>
+                        <label className={labelBaseClasses}>{t('auth.country')}</label>
+                        <div className="relative">
+                          <button type="button" onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                            className={`${inputBaseClasses} flex justify-between items-center text-left ${isCountryDropdownOpen ? 'border-primary-container bg-primary/10' : ''} ${!formData.country ? 'text-slate-500' : 'text-on-surface'}`}>
+                            <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">public</span>
+                            <span className="truncate pr-2 text-xs sm:text-sm">{selectedCountryName}</span>
+                            <span className="material-symbols-outlined text-on-surface-variant text-lg sm:text-xl transition-transform duration-300 flex-shrink-0" style={{ transform: isCountryDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>keyboard_arrow_down</span>
+                          </button>
+
+                          <AnimatePresence>
+                            {isCountryDropdownOpen && (
+                              <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} transition={{ duration: 0.15 }}
+                                className="absolute z-50 w-full mt-2 bg-surface backdrop-blur-xl border border-outline-variant/20 rounded-2xl shadow-xl overflow-hidden origin-top">
+                                <ul className="max-h-40 sm:max-h-48 overflow-y-auto custom-scrollbar py-2">
+                                  {countryList.map((country) => (
+                                    <li key={country.code} onClick={() => handleCountrySelect(country.code)}
+                                      className={`px-3 sm:px-4 py-2 text-xs sm:text-sm cursor-pointer transition-colors duration-150 flex items-center justify-between ${formData.country === country.code ? 'bg-primary-container text-white font-bold' : 'text-on-surface hover:bg-primary-container/10'}`}>
+                                      <span>{country.name}</span>
+                                      {formData.country === country.code && <span className="material-symbols-outlined text-base sm:text-lg">check</span>}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="space-y-1">
+                <label className={labelBaseClasses}>{t('auth.email')}</label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">mail</span>
+                  <input type="email" name="email" required placeholder="email@example.com" className={inputBaseClasses} onChange={handleChange} value={formData.email} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                </div>
               </div>
-              <div className="relative flex justify-center text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
-                <span className="bg-surface px-4">{t('auth.continue_with')}</span>
-              </div>
-            </div>
 
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => toast.error(t('auth.google_error'))}
-                theme={document.documentElement.classList.contains('dark') ? 'filled_black' : 'outline'}
-                shape="pill"
-                size="large"
-              />
+              <div className="space-y-1">
+                <label className={labelBaseClasses}>{t('auth.password')}</label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">lock</span>
+                  <input type={showPassword ? "text" : "password"} name="password" required placeholder="••••••••" className={inputBaseClasses} onChange={handleChange} value={formData.password} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-on-surface transition-colors focus:outline-none">
+                    <span className="material-symbols-outlined text-lg sm:text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {!isLogin && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}
+                    className="space-y-1 overflow-hidden">
+                    <label className={labelBaseClasses}>{t('auth.confirm_password')}</label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-500 text-lg sm:text-xl">lock</span>
+                      <input type={showPassword ? "text" : "password"} name="confirmPassword" required placeholder="••••••••" className={inputBaseClasses} onChange={handleChange} value={formData.confirmPassword} onFocus={() => setIsTyping(true)} onBlur={() => setIsTyping(false)} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Botón submit */}
+              <button
+                disabled={loading}
+                type="submit"
+                className={`w-full h-[44px] sm:h-[48px] md:h-[52px] lg:h-[56px] rounded-xl font-black text-sm sm:text-base shadow-lg transition-all duration-200 mt-4 sm:mt-6 flex items-center justify-center gap-2 sm:gap-3 active:scale-[0.98] hover:-translate-y-0.5
+                  ${loading ? 'bg-surface-variant text-on-surface-variant/50 cursor-not-allowed shadow-none' : 'bg-primary text-on-primary hover:bg-primary-container hover:text-on-primary-container shadow-primary/20'}`}
+              >
+                {loading ? (
+                  <Spinner />
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg sm:text-xl">{isLogin ? 'login' : 'person_add'}</span>
+                    {isLogin ? t('auth.login_btn') : t('auth.register_btn')}
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Social Login */}
+            <div className="mt-6 sm:mt-8">
+              <div className="relative mb-4 sm:mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-outline/20"></div>
+                </div>
+                <div className="relative flex justify-center text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-on-surface-variant">
+                  <span className="bg-surface px-3 sm:px-4">{t('auth.continue_with')}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => toast.error(t('auth.google_error'))}
+                  theme={document.documentElement.classList.contains('dark') ? 'filled_black' : 'outline'}
+                  shape="pill"
+                  size="large"
+                />
+              </div>
             </div>
           </div>
         </div>
