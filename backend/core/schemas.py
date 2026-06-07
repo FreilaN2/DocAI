@@ -5,6 +5,7 @@ Modelos Pydantic para validación de requests y responses.
 Centraliza todos los schemas de la API en un solo lugar.
 """
 
+from typing import Optional
 from pydantic import BaseModel
 from core.document_builder import DEFAULT_APA_FONT
 
@@ -14,6 +15,7 @@ from core.document_builder import DEFAULT_APA_FONT
 class ParrafoCorregido(BaseModel):
     texto: str
     categoria: str
+    textAlign: Optional[str] = None  # 'left' | 'center' | 'right' — alineación personalizada
 
 
 class DatosFinales(BaseModel):
@@ -24,6 +26,8 @@ class DatosFinales(BaseModel):
     incluir_indice: bool = False
     formato: str = "docx"
     fuente: str = DEFAULT_APA_FONT
+    upload_id: Optional[str] = None   # ID del archivo original (para copiar portada e imágenes)
+    n_portada: int = 0                 # Número de párrafos de portada a copiar del original
 
 
 # ─── Autenticación ────────────────────────────────────────

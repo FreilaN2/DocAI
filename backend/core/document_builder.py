@@ -386,3 +386,125 @@ def _get_soffice_path() -> Optional[str]:
 
 # Resultado cacheado para no llamar shutil.which() en cada conversión PDF
 _get_soffice_path_cached = lru_cache(maxsize=1)(_get_soffice_path)
+
+
+# ═══════════════════════════════════════════════════════════
+# COPIA DE PORTADA DESDE DOCUMENTO ORIGINAL (preserva imágenes)
+# ═══════════════════════════════════════════════════════════
+
+def copiar_portada_desde_original(doc_original, doc_nuevo, n_portada: int) -> None:
+    """
+    Copia los primeros elementos del body del original al nuevo documento,
+    incluyendo PÁRRAFOS y TABLAS (ej: tabla Tutor/Autores de la portada).
+
+    Estrategia:
+      - Usa el _p XML del párrafo n_portada como centinela de corte.
+      - Itera los hijos directos del body (<w:p>, <w:tbl>, etc.).
+      - Para cada elemento: deepcopy + reescritura de rIds de imágenes.
+      - Se detiene al encontrar el centinela o el <w:sectPr>.
+    """
+    import copy
+
+    _NS_R       = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    _REL_IMAGE  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+    _BLIP_TAG   = '{http://schemas.openxmlformats.org/drawingml/2006/main}blip'
+    _WNS_SECTPR = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}sectPr'
+
+    orig_part  = doc_original.part
+    nuevo_part = doc_nuevo.part
+    body_nuevo = doc_nuevo.element.body
+
+    # Centinela: el XML del primer párrafo del cuerpo (post-portada)
+    all_paragraphs = doc_original.paragraphs
+    sentinel = all_paragraphs[n_portada]._p if n_portada < len(all_paragraphs) else None
+
+    # Cache rId original → rId nuevo
+    rId_map: dict[str, str] = {}
+
+    def _reparar_imagenes(xml_elem):
+        """Copia relaciones de imagen y reescribe rIds en el XML copiado."""
+        for blip in xml_elem.iter(_BLIP_TAG):
+            r_embed = blip.get(f'{{{_NS_R}}}embed')
+            if not r_embed:
+                continue
+            if r_embed in rId_map:
+                blip.set(f'{{{_NS_R}}}embed', rId_map[r_embed])
+                continue
+            try:
+                img_part = orig_part.related_parts.get(r_embed)
+                if img_part is None:
+                    continue
+                nuevo_rId = nuevo_part.relate_to(img_part, _REL_IMAGE)
+            except Exception:
+                try:
+                    from docx.opc.part import Part
+                    from docx.opc.packuri import PackURI
+                    img_part2 = orig_part.related_parts.get(r_embed)
+                    if img_part2 is None:
+                        continue
+                    new_p = Part(
+                        PackURI(img_part2.partname),
+                        img_part2.content_type,
+                        img_part2._blob,
+                        nuevo_part.package,
+                    )
+                    nuevo_rId = nuevo_part.relate_to(new_p, _REL_IMAGE)
+                except Exception as exc:
+                    logger.warning(f"Imagen {r_embed} no copiada: {exc}")
+                    continue
+            rId_map[r_embed] = nuevo_rId
+            blip.set(f'{{{_NS_R}}}embed', nuevo_rId)
+
+    for child in doc_original.element.body:
+        # Parar al llegar al primer párrafo del cuerpo real
+        if sentinel is not None and child is sentinel:
+            break
+        # Nunca copiar propiedades de sección
+        if child.tag == _WNS_SECTPR:
+            break
+
+        xml_copy = copy.deepcopy(child)
+        _reparar_imagenes(xml_copy)
+
+        sect_pr = body_nuevo.find(_WNS_SECTPR)
+        if sect_pr is not None:
+            sect_pr.addprevious(xml_copy)
+        else:
+            body_nuevo.append(xml_copy)
+
+
+
+
+
+def _detectar_n_portada(parrafos) -> int:
+    """
+    Detecta cuántos párrafos iniciales corresponden a la portada.
+    La portada termina justo antes del primer TITULO_N1 que corresponda
+    al cuerpo real del documento (capítulo, el problema, resumen, etc.).
+    
+    Retorna el índice (0-based) del primer párrafo que NO es portada.
+    Si no se detecta corte, retorna 0 (sin portada detectada).
+    """
+    # Palabras clave que indican inicio del cuerpo académico
+    _INICIO_CUERPO = frozenset({
+        "capitulo", "capítulo", "resumen", "abstract",
+        "introduccion", "introducción", "el problema",
+        "planteamiento", "agradecimientos", "dedicatoria",
+        "indice", "índice", "referencias", "bibliograf",
+    })
+
+    for idx, p in enumerate(parrafos):
+        cat = p.get("categoria", "") if isinstance(p, dict) else getattr(p, "categoria", "")
+        txt = (p.get("texto", "") if isinstance(p, dict) else getattr(p, "texto", "")).strip().lower()
+
+        if cat in ("TITULO_N1", "TITULO_N2"):
+            # Verificar si el texto indica inicio del cuerpo
+            for kw in _INICIO_CUERPO:
+                if txt.startswith(kw):
+                    return idx
+
+        # Seguridad: si llegamos al párrafo 30 sin corte, no hay portada identificable
+        if idx >= 30:
+            return 0
+
+    return 0

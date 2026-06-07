@@ -411,24 +411,67 @@ def _clasificar_parrafo_reglas_sin_cache(texto: str, posicion: int = 0) -> str:
 # PROCESAMIENTO POR LOTES (OPTIMIZADO)
 # ═══════════════════════════════════════════════════════════
 
+_BLIP_TAG_FULL  = '{http://schemas.openxmlformats.org/drawingml/2006/main}blip'
+_NS_R_FULL      = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+
+def _extraer_rel_imagen(paragraph) -> str | None:
+    """
+    Extrae el primer rId de imagen (r:embed) del XML del párrafo, o None si no hay imagen.
+    Compatible con DrawingML (<a:blip r:embed="...">).
+    """
+    try:
+        for blip in paragraph._p.iter(_BLIP_TAG_FULL):
+            r_embed = blip.get(f'{{{_NS_R_FULL}}}embed')
+            if r_embed:
+                return r_embed
+    except Exception:
+        pass
+    return None
+
+
 def procesar_con_reglas(doc_paragraphs) -> dict:
     """
     Procesa una lista de párrafos usando el motor de reglas.
-    
+
     FIX #9: Usa BASE_STATS.copy() en lugar de recrear el dict manualmente.
+    NUEVO: Detecta párrafos con imagen y los incluye como PORTADA_IMAGEN.
     """
     stats = BASE_STATS.copy()
     detalles: list[dict] = []
 
     total = len(doc_paragraphs)
-    
+    hay_contenido = False  # Para saber si ya pasamos la portada
+
     for index, paragraph in enumerate(doc_paragraphs):
         texto = paragraph.text.strip()
-        if not texto:
+
+        # Verificar si el párrafo contiene una imagen
+        rel_img = _extraer_rel_imagen(paragraph)
+        if rel_img:
+            # Párrafo con imagen (ej: logo de la portada)
+            detalles.append({
+                "id": index,
+                "texto": texto or "",
+                "categoria": "PORTADA_IMAGEN",
+                "rel_id": rel_img,
+            })
+            stats["PARRAFO_NORMAL"] = stats.get("PARRAFO_NORMAL", 0) + 1
             continue
 
+        if not texto:
+            # Párrafos vacíos ANTES del primer contenido = espaciado de portada
+            if not hay_contenido:
+                detalles.append({
+                    "id": index,
+                    "texto": "",
+                    "categoria": "PORTADA_ESPACIO",
+                })
+            continue
+
+        hay_contenido = True
         logger.debug(f"⚡ Procesando párrafo {index + 1}/{total} (Reglas)...")
-        
+
         # Usar versión cacheada para aprovechar repeticiones
         categoria = clasificar_parrafo_reglas(texto, posicion=index)
         stats[categoria] = stats.get(categoria, 0) + 1
@@ -438,4 +481,4 @@ def procesar_con_reglas(doc_paragraphs) -> dict:
             "categoria": categoria,
         })
 
-    return {"stats": stats, "detalles": detalles}
+    return {"stats": stats, "detalles": detalles}

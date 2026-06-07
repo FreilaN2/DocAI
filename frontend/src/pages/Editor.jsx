@@ -20,6 +20,7 @@ export default function Editor() {
   const [edicion, setEdicion] = useState("7ma");
   const [fuente, setFuente] = useState("Times New Roman");
   const [result, setResult] = useState(null);
+  const [uploadId, setUploadId] = useState(null);   // ← ID del archivo original
   const [includeTOC, setIncludeTOC] = useState(true);
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'document'
 
@@ -217,6 +218,7 @@ export default function Editor() {
       formData.append('file', safeFile);
       const uploadResp = await api.post('/upload-documento/', formData);
       const { upload_id } = uploadResp.data;
+      setUploadId(upload_id);  // ← guardar para enviarlo al generar final
 
       const baseURL = api.defaults.baseURL || '';
       const sseUrl = `${baseURL}/procesar-apa/stream?upload_id=${upload_id}&edicion=${edicion}&plan=${plan}&token=${token}`;
@@ -289,8 +291,26 @@ export default function Editor() {
     setResult({ ...result, detalles: updatedDetalles });
   };
 
+  const handleReorder = (fromIdx, toIdx) => {
+    setResult(prev => {
+      if (!prev?.detalles) return prev;
+      const detalles = [...prev.detalles];
+      const [moved] = detalles.splice(fromIdx, 1);
+      detalles.splice(toIdx, 0, moved);
+      return { ...prev, detalles };
+    });
+  };
+
+  const handleAlignChange = (id, align) => {
+    setResult(prev => ({
+      ...prev,
+      detalles: prev.detalles.map(d => d.id === id ? { ...d, textAlign: align } : d),
+    }));
+  };
+
   const handleConfirmarYDescargar = async () => {
     const currentToken = localStorage.getItem('token');
+
     if (!currentToken) {
       sessionStorage.setItem('docai_pending_result', JSON.stringify(result));
       sessionStorage.setItem('docai_pending_filename', file ? file.name : '');
@@ -305,13 +325,38 @@ export default function Editor() {
     setLoading(true);
     try {
       const savedFilename = sessionStorage.getItem('docai_pending_filename');
+
+      // Detectar cuántos párrafos son portada (antes del primer título del cuerpo)
+      const INICIO_CUERPO = [
+        'capitulo', 'capítulo', 'resumen', 'abstract',
+        'introduccion', 'introducción', 'el problema',
+        'planteamiento', 'agradecimientos', 'dedicatoria',
+        'indice', 'índice', 'referencias', 'bibliograf',
+      ];
+      let nPortada = 0;
+      if (result?.detalles) {
+        for (let idx = 0; idx < Math.min(result.detalles.length, 30); idx++) {
+          const item = result.detalles[idx];
+          const cat = item.categoria || '';
+          const txt = (item.texto || '').trim().toLowerCase();
+          if (cat === 'TITULO_N1' || cat === 'TITULO_N2') {
+            if (INICIO_CUERPO.some(kw => txt.startsWith(kw))) {
+              nPortada = idx;
+              break;
+            }
+          }
+        }
+      }
+
       const payload = {
         edicion, fuente,
         filename: file ? file.name : (savedFilename || 'documento_docai.docx'),
         plan,
-        parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria })),
+        parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria, textAlign: d.textAlign || null })),
         incluir_indice: isPro ? includeTOC : false,
-        formato: downloadFormat
+        formato: downloadFormat,
+        upload_id: uploadId || null,
+        n_portada: nPortada,
       };
       const response = await api.post('/generar-final/', payload);
       window.location.href = `${api.defaults.baseURL}/descargar/${response.data.file_id}`;
@@ -622,6 +667,9 @@ export default function Editor() {
                       fuente={fuente}
                       onLabelChange={handleLabelChange}
                       onTextChange={handleTextChange}
+                      onAlignChange={handleAlignChange}
+                      onReorder={handleReorder}
+                      uploadId={uploadId}
                     />
                   </motion.div>
                 )}

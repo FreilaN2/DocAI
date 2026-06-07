@@ -17,7 +17,7 @@ from functools import lru_cache
 from typing import AsyncGenerator
 
 from core.groq_pool import pool, MODELO_LIGERO, MODELO_PESADO
-from core.apa_rules import clasificar_parrafo_reglas
+from core.apa_rules import clasificar_parrafo_reglas, _extraer_rel_imagen
 
 logger = logging.getLogger(__name__)
 
@@ -281,15 +281,14 @@ def procesar_con_ia(doc_paragraphs) -> dict:
     detalles: list[dict] = []
     total_groq_tokens = 0
 
-    textos_validos, indices_originales = _extraer_textos(doc_paragraphs)
+    textos_validos, indices_originales, imagen_items = _extraer_textos(doc_paragraphs)
     total_validos = len(textos_validos)
-    
-    if total_validos == 0:
+
+    if total_validos == 0 and not imagen_items:
         logger.warning("⚠️  No se encontraron párrafos con texto para procesar.")
         return {"stats": stats, "detalles": [], "groq_tokens": 0}
-    
-    modelo = seleccionar_modelo(total_validos)
 
+    modelo = seleccionar_modelo(total_validos)
     logger.info(f"🤖 Clasificación por lotes — {total_validos} párrafos — modelo: {modelo}")
 
     for i in range(0, total_validos, BATCH_SIZE):
@@ -297,13 +296,12 @@ def procesar_con_ia(doc_paragraphs) -> dict:
         inicio_lote = i + 1
         fin_lote = min(i + BATCH_SIZE, total_validos)
         num_lote = i // BATCH_SIZE + 1
-        
+
         logger.info(f"🔍 Lote {num_lote} ({inicio_lote}–{fin_lote})...")
 
         etiquetas_lote, tokens_lote = clasificar_lote_ia(lote_textos, modelo)
         total_groq_tokens += tokens_lote
 
-        # Procesar resultados del lote
         for j, categoria in enumerate(etiquetas_lote):
             idx_original = indices_originales[i + j]
             stats[categoria] = stats.get(categoria, 0) + 1
@@ -314,12 +312,15 @@ def procesar_con_ia(doc_paragraphs) -> dict:
             })
             logger.debug(f"   🏷️  [{idx_original}] → {categoria}")
 
-        # Respiro entre lotes para no sobrecargar Groq (excepto último lote)
         if fin_lote < total_validos:
             time.sleep(DELAY_ENTRE_LOTES)
 
+    # Mezclar items de imagen con detalles de texto, orden por id
+    todos = detalles + imagen_items
+    todos.sort(key=lambda x: x["id"])
+
     logger.info(f"✅ Total tokens Groq consumidos: {total_groq_tokens}")
-    return {"stats": stats, "detalles": detalles, "groq_tokens": total_groq_tokens}
+    return {"stats": stats, "detalles": todos, "groq_tokens": total_groq_tokens}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -341,7 +342,7 @@ async def procesar_con_ia_stream(
       - tipo='lote'        → resultado parcial de cada lote
       - tipo='finalizado'  → stats completos + todos los detalles
     """
-    textos_validos, indices_originales = _extraer_textos(doc_paragraphs)
+    textos_validos, indices_originales, imagen_items = _extraer_textos(doc_paragraphs)
     total_validos = len(textos_validos)
     
     # Cálculo optimizado de total_lotes (evita ceil division innecesaria)
@@ -416,12 +417,14 @@ async def procesar_con_ia_stream(
         if i + BATCH_SIZE < total_validos:
             await asyncio.sleep(DELAY_ENTRE_LOTES)
 
-    # Evento final con todos los resultados
+    # Evento final con todos los resultados (incluye imágenes)
+    todos = detalles + imagen_items
+    todos.sort(key=lambda x: x["id"])
     yield {
         "tipo": "finalizado",
         "progreso": 100,
         "stats": stats,
-        "detalles": detalles,
+        "detalles": todos,
         "groq_tokens": total_groq_tokens,
     }
 
@@ -430,20 +433,42 @@ async def procesar_con_ia_stream(
 # HELPERS (OPTIMIZADOS)
 # ═══════════════════════════════════════════════════════════
 
-def _extraer_textos(doc_paragraphs) -> tuple[list[str], list[int]]:
+def _extraer_textos(doc_paragraphs) -> tuple[list[str], list[int], list[dict]]:
     """
-    Filtra párrafos vacíos y retorna (textos, índices_originales).
-    
-    Optimización: Usa list comprehension con zip para evitar
-    append() repetitivo en un loop manual.
+    Filtra párrafos vacíos y retorna (textos, índices_originales, items_imagen).
+
+    items_imagen: lista de dicts {id, texto, categoria, rel_id} para párrafos
+    que contienen imágenes (DrawingML) y no deben ir a la IA.
     """
-    textos = []
+    textos  = []
     indices = []
-    
+    imagen_items: list[dict] = []
+    hay_contenido = False
+
     for index, paragraph in enumerate(doc_paragraphs):
         texto = paragraph.text.strip()
-        if texto:
-            textos.append(texto)
-            indices.append(index)
-    
-    return textos, indices
+
+        rel_img = _extraer_rel_imagen(paragraph)
+        if rel_img:
+            imagen_items.append({
+                "id": index,
+                "texto": texto or "",
+                "categoria": "PORTADA_IMAGEN",
+                "rel_id": rel_img,
+            })
+            continue
+
+        if not texto:
+            if not hay_contenido:
+                imagen_items.append({
+                    "id": index,
+                    "texto": "",
+                    "categoria": "PORTADA_ESPACIO",
+                })
+            continue
+
+        hay_contenido = True
+        textos.append(texto)
+        indices.append(index)
+
+    return textos, indices, imagen_items

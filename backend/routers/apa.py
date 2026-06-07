@@ -39,6 +39,7 @@ from core.document_builder import (
     _ordenar_referencia_por_autor, configurar_parrafo_estilo,
     _insertar_tabla_de_contenidos, _configurar_encabezado_paginas,
     _force_update_fields, añadir_marca_de_agua, _get_soffice_path_cached,
+    copiar_portada_desde_original, _detectar_n_portada,
 )
 import logging
 
@@ -134,8 +135,10 @@ async def procesar_apa_stream(
                 async for evento in procesar_con_ia_stream(doc.paragraphs):
                     if evento.get("tipo") == "finalizado":
                         consume_tokens(current_user.id, evento.get("groq_tokens", 0), filename, db)
+                        # No eliminamos input_path aquí: /generar-final/ lo necesita
+                        # para copiar la portada con imágenes. El cron de limpieza
+                        # (limpiar_archivos_antiguos) lo borrará después de 24h.
                         try:
-                            os.remove(input_path)
                             upload_storage.pop(upload_id)
                         except Exception:
                             pass
@@ -222,6 +225,43 @@ async def generar_final(
     out_docx      = os.path.join(PROCESSED_DIR, out_name + ".docx")
     output_path   = out_docx
 
+    # ── Recuperar documento original (para portada con imágenes) ──────
+    doc_original = None
+    if datos.upload_id:
+        orig_path = None
+
+        # 1. Buscar en el storage en memoria (puede haberse expirado/popado)
+        entry = upload_storage.get(datos.upload_id)
+        if entry:
+            orig_path = entry[0]
+
+        # 2. Fallback: buscar el archivo en disco por prefijo de upload_id
+        if not orig_path or not os.path.exists(orig_path):
+            prefix = datos.upload_id
+            try:
+                for fname in os.listdir(UPLOAD_DIR):
+                    if fname.startswith(prefix):
+                        orig_path = os.path.join(UPLOAD_DIR, fname)
+                        break
+            except Exception:
+                pass
+
+        if orig_path and os.path.exists(orig_path):
+            try:
+                with open(orig_path, "rb") as f:
+                    doc_original = Document(io.BytesIO(f.read()))
+            except Exception as e:
+                logger.warning(f"No se pudo abrir el original para copiar portada: {e}")
+
+    # ── Detectar cuántos párrafos son portada ─────────────────────────
+    # Primero intentamos con el valor enviado por el frontend; si es 0
+    # lo calculamos automáticamente desde la lista de párrafos.
+    n_portada = datos.n_portada
+    if n_portada == 0 and doc_original:
+        n_portada = _detectar_n_portada(
+            [p.dict() for p in datos.parrafos]
+        )
+
     doc    = Document()
     reglas = dict(NORMAS_APA.get(datos.edicion, NORMAS_APA["7ma"]))
     reglas["edicion"] = datos.edicion
@@ -250,10 +290,23 @@ async def generar_final(
 
     _configurar_encabezado_paginas(doc)
 
-    # --- Índice (solo Pro) ---
+    # ═══════════════════════════════════════════════════════
+    # ORDEN APA: 1) Portada  2) Índice  3) Cuerpo
+    # ═══════════════════════════════════════════════════════
+
+    # --- 1. Portada (copiada del original con imágenes) ---
+    if doc_original and n_portada > 0:
+        try:
+            copiar_portada_desde_original(doc_original, doc, n_portada)
+            doc.add_page_break()
+            logger.info(f"Portada copiada: {n_portada} párrafos del original")
+        except Exception as e:
+            logger.warning(f"Error copiando portada, se omite: {e}")
+
+    # --- 2. Índice (solo Pro) ---
     if datos.incluir_indice and datos.plan == "pro":
         headings = []
-        for p in datos.parrafos:
+        for p in datos.parrafos[n_portada:]:
             cat = _normalizar_categoria(p.categoria)
             if "TITULO" in cat:
                 try:
@@ -262,27 +315,27 @@ async def generar_final(
                     nivel = 1
                 headings.append((min(max(nivel, 1), 3), p.texto.strip()))
 
-        title = doc.add_paragraph("Indice")
+        title = doc.add_paragraph("Índice")
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in title.runs:
             run.bold, run.font.name, run.font.size = True, reglas["fuente"], Pt(16)
 
         if headings:
             _insertar_tabla_de_contenidos(doc)
-            nota = doc.add_paragraph("Actualiza los campos en Word para obtener los numeros de pagina reales.")
+            nota = doc.add_paragraph("Actualiza los campos en Word para obtener los números de página reales.")
             nota.italic = True
             nota.paragraph_format.space_before = Pt(4)
             nota.paragraph_format.space_after  = Pt(8)
         else:
-            doc.add_paragraph("No se detectaron titulos validos.").italic = True
+            doc.add_paragraph("No se detectaron títulos válidos.").italic = True
 
         doc.add_page_break()
 
-    # --- Cuerpo del documento ---
+    # --- 3. Cuerpo del documento (párrafos APA, sin los de portada) ---
     reference_started = False
     paragraph_counter = 0
     reference_buffer: list[ParrafoCorregido] = []
-    i = 0
+    i = n_portada          # ← Empezamos DESPUÉS de los párrafos de portada
     parrafos = datos.parrafos
 
     while i < len(parrafos):
@@ -344,6 +397,15 @@ async def generar_final(
 
         ph = doc.add_paragraph(p.texto)
         configurar_parrafo_estilo(ph, cat, reglas)
+        # Aplicar alineación personalizada del usuario (si la especificó en el editor)
+        if p.textAlign:
+            _MAP_ALIGN = {
+                'left':   WD_ALIGN_PARAGRAPH.LEFT,
+                'center': WD_ALIGN_PARAGRAPH.CENTER,
+                'right':  WD_ALIGN_PARAGRAPH.RIGHT,
+            }
+            if p.textAlign in _MAP_ALIGN:
+                ph.alignment = _MAP_ALIGN[p.textAlign]
         paragraph_counter += 1
         i += 1
 
@@ -404,6 +466,52 @@ async def generar_final(
     file_id = str(uuid.uuid4())
     storage.set(file_id, output_path)
     return {"file_id": file_id}
+
+
+@router.get("/imagen/{upload_id}/{rel_id}")
+async def obtener_imagen_portada(upload_id: str, rel_id: str):
+    """
+    Sirve una imagen extraída del .docx original identificado por upload_id.
+    Se usa para mostrar imágenes de portada en la vista previa del editor.
+    """
+    from fastapi.responses import Response
+    import base64
+
+    # Buscar el archivo en upload_storage o en disco
+    orig_path = None
+    entry = upload_storage.get(upload_id)
+    if entry:
+        orig_path = entry[0]
+
+    if not orig_path or not os.path.exists(orig_path):
+        try:
+            for fname in os.listdir(UPLOAD_DIR):
+                if fname.startswith(upload_id):
+                    orig_path = os.path.join(UPLOAD_DIR, fname)
+                    break
+        except Exception:
+            pass
+
+    if not orig_path or not os.path.exists(orig_path):
+        raise HTTPException(status_code=404, detail="Archivo original no encontrado")
+
+    try:
+        with open(orig_path, "rb") as f:
+            doc = Document(io.BytesIO(f.read()))
+
+        img_part = doc.part.related_parts.get(rel_id)
+        if img_part is None:
+            raise HTTPException(status_code=404, detail="Imagen no encontrada")
+
+        return Response(
+            content=img_part._blob,
+            media_type=img_part.content_type,
+            headers={"Cache-Control": "public, max-age=3600"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error extrayendo imagen: {e}")
 
 
 @router.get("/descargar/{file_id}")
