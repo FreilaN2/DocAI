@@ -19,7 +19,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from fastapi.responses import FileResponse, StreamingResponse
 from docx import Document
 from docx.shared import Inches, Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -39,7 +39,7 @@ from core.document_builder import (
     _ordenar_referencia_por_autor, configurar_parrafo_estilo,
     _insertar_tabla_de_contenidos, _configurar_encabezado_paginas,
     _force_update_fields, añadir_marca_de_agua, _get_soffice_path_cached,
-    copiar_portada_desde_original, _detectar_n_portada,
+    _detectar_n_portada,
 )
 import logging
 
@@ -294,12 +294,53 @@ async def generar_final(
     # ORDEN APA: 1) Portada  2) Índice  3) Cuerpo
     # ═══════════════════════════════════════════════════════
 
-    # --- 1. Portada (copiada del original con imágenes) ---
-    if doc_original and n_portada > 0:
+    # --- 1. Portada ---
+    if n_portada > 0:
+        from core.document_builder import copiar_parrafo_xml
         try:
-            copiar_portada_desde_original(doc_original, doc, n_portada)
+            for i in range(n_portada):
+                p = datos.parrafos[i]
+                if p.categoria == "PORTADA_IMAGEN":
+                    if doc_original and getattr(p, "id", None) is not None:
+                        ph = copiar_parrafo_xml(doc_original, doc, p.id)
+                        if ph:
+                            _MAP_ALIGN = {
+                                'left':   WD_ALIGN_PARAGRAPH.LEFT,
+                                'center': WD_ALIGN_PARAGRAPH.CENTER,
+                                'right':  WD_ALIGN_PARAGRAPH.RIGHT,
+                            }
+                            # Aplicar alineación seleccionada o centrar por defecto
+                            if getattr(p, "textAlign", None) in _MAP_ALIGN:
+                                ph.alignment = _MAP_ALIGN[p.textAlign]
+                            else:
+                                ph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                elif p.categoria == "PORTADA_ESPACIO":
+                    pass # Omitir espacios para que quepa en 1 pág
+                else:
+                    ph = doc.add_paragraph(p.texto)
+                    configurar_parrafo_estilo(ph, p.categoria, reglas)
+                    
+                    # Forzar formato compacto (interlineado 1.5 y sin espacios extra) para la portada
+                    ph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+                    ph.paragraph_format.space_before = Pt(0)
+                    ph.paragraph_format.space_after = Pt(0)
+                    
+                    # Si el párrafo tiene una tabulación, añadir un Tab Stop alineado a la derecha
+                    if '\t' in p.texto:
+                        tab_stops = ph.paragraph_format.tab_stops
+                        tab_stops.add_tab_stop(Inches(6.5), WD_TAB_ALIGNMENT.RIGHT)
+                    
+                    # Forzar alineación de la preview si el usuario la modificó
+                    if getattr(p, "textAlign", None):
+                        _MAP_ALIGN = {
+                            'left':   WD_ALIGN_PARAGRAPH.LEFT,
+                            'center': WD_ALIGN_PARAGRAPH.CENTER,
+                            'right':  WD_ALIGN_PARAGRAPH.RIGHT,
+                        }
+                        if p.textAlign in _MAP_ALIGN:
+                            ph.alignment = _MAP_ALIGN[p.textAlign]
             doc.add_page_break()
-            logger.info(f"Portada copiada: {n_portada} párrafos del original")
+            logger.info(f"Portada generada con {n_portada} elementos del frontend.")
         except Exception as e:
             logger.warning(f"Error copiando portada, se omite: {e}")
 
@@ -403,6 +444,7 @@ async def generar_final(
                 'left':   WD_ALIGN_PARAGRAPH.LEFT,
                 'center': WD_ALIGN_PARAGRAPH.CENTER,
                 'right':  WD_ALIGN_PARAGRAPH.RIGHT,
+                'justify': WD_ALIGN_PARAGRAPH.JUSTIFY,
             }
             if p.textAlign in _MAP_ALIGN:
                 ph.alignment = _MAP_ALIGN[p.textAlign]

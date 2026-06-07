@@ -339,7 +339,11 @@ export default function Editor() {
           const item = result.detalles[idx];
           const cat = item.categoria || '';
           const txt = (item.texto || '').trim().toLowerCase();
-          if (cat === 'TITULO_N1' || cat === 'TITULO_N2') {
+          
+          const isTitle = cat.startsWith('TITULO');
+          const isShortNormal = cat === 'PARRAFO_NORMAL' && txt.length < 100;
+          
+          if (isTitle || isShortNormal) {
             if (INICIO_CUERPO.some(kw => txt.startsWith(kw))) {
               nPortada = idx;
               break;
@@ -352,7 +356,7 @@ export default function Editor() {
         edicion, fuente,
         filename: file ? file.name : (savedFilename || 'documento_docai.docx'),
         plan,
-        parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria, textAlign: d.textAlign || null })),
+        parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria, textAlign: d.textAlign || null, id: d.id })),
         incluir_indice: isPro ? includeTOC : false,
         formato: downloadFormat,
         upload_id: uploadId || null,

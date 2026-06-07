@@ -136,6 +136,10 @@ def formatear_titulo_apa(texto: str) -> str:
     """Aplica Title Case APA (respeta palabras menores como 'de', 'el', 'y')."""
     if not texto:
         return texto.strip()
+    # Preservar mayúsculas sostenidas intencionales (ej. portadas institucionales o CAPÍTULOS)
+    if texto.isupper():
+        return texto.strip()
+        
     partes = texto.strip().split()
     resultado = []
     for idx, palabra in enumerate(partes):
@@ -151,6 +155,10 @@ def formatear_titulo_apa_sentence_case(texto: str) -> str:
     """Aplica Sentence case APA (solo primera letra mayúscula)."""
     if not texto:
         return texto.strip()
+    # Preservar mayúsculas sostenidas intencionales
+    if texto.isupper():
+        return texto.strip()
+        
     t = texto.strip().lower()
     return (t[0].upper() + t[1:]) if len(t) > 1 else t.upper()
 
@@ -232,7 +240,7 @@ def configurar_parrafo_estilo(paragraph, categoria: str, reglas: dict, body_text
     pf.keep_together     = False
     pf.first_line_indent = Inches(0)
     pf.left_indent       = Inches(0)
-    paragraph.alignment  = WD_ALIGN_PARAGRAPH.LEFT
+    paragraph.alignment  = WD_ALIGN_PARAGRAPH.JUSTIFY
 
     if categoria.startswith("TITULO"):
         nivel   = categoria.split("_")[-1] if "_" in categoria else "N1"
@@ -313,7 +321,7 @@ def configurar_parrafo_estilo(paragraph, categoria: str, reglas: dict, body_text
 
     # PARRAFO_NORMAL (default)
     pf.first_line_indent = Inches(reglas["sangria_primera_linea"])
-    paragraph.alignment  = WD_ALIGN_PARAGRAPH.LEFT
+    paragraph.alignment  = WD_ALIGN_PARAGRAPH.JUSTIFY
     for run in paragraph.runs:
         run.font.name, run.font.size = reglas["fuente"], Pt(reglas["tamano"])
 
@@ -344,17 +352,45 @@ def _insertar_tabla_de_contenidos(doc) -> None:
 
 def _configurar_encabezado_paginas(doc) -> None:
     """Configura el encabezado de páginas con número de página centrado."""
-    for section in doc.sections:
+    for i, section in enumerate(doc.sections):
         section.header.is_linked_to_previous = False
+        
+        # Ocultar el número en la primera página (portada)
+        if i == 0:
+            section.different_first_page_header_footer = True
+            
         header = section.header
         paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
         paragraph.text = ""
-        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         paragraph.paragraph_format.space_after = Pt(0)
         run = paragraph.add_run()
-        fld_simple = OxmlElement('w:fldSimple')
-        fld_simple.set(qn('w:instr'), 'PAGE \\* MERGEFORMAT')
-        run._r.append(fld_simple)
+        
+        # Estructura compleja de campo PAGE para que LibreOffice (y Word) rendericen un número por defecto (fallback '1')
+        # hasta que se actualicen los campos, garantizando que no salga vacío en el PDF final.
+        fldChar1 = OxmlElement('w:fldChar')
+        fldChar1.set(qn('w:fldCharType'), 'begin')
+        
+        instrText = OxmlElement('w:instrText')
+        instrText.set(qn('xml:space'), 'preserve')
+        instrText.text = 'PAGE'
+        
+        fldChar2 = OxmlElement('w:fldChar')
+        fldChar2.set(qn('w:fldCharType'), 'separate')
+        
+        r_fallback = OxmlElement('w:r')
+        t = OxmlElement('w:t')
+        t.text = "1"
+        r_fallback.append(t)
+        
+        fldChar3 = OxmlElement('w:fldChar')
+        fldChar3.set(qn('w:fldCharType'), 'end')
+        
+        run._r.append(fldChar1)
+        run._r.append(instrText)
+        run._r.append(fldChar2)
+        run._r.append(r_fallback)
+        run._r.append(fldChar3)
 
 
 def _force_update_fields(doc) -> None:
@@ -368,6 +404,75 @@ def _force_update_fields(doc) -> None:
     update = OxmlElement('w:updateFields')
     update.set(qn('w:val'), 'true')
     element.append(update)
+
+
+def copiar_parrafo_xml(doc_original, doc_nuevo, idx: int):
+    """
+    Copia un único párrafo (por índice) desde el documento original al nuevo,
+    resolviendo y reescribiendo las referencias a imágenes (rIds).
+    """
+    import copy
+
+    _NS_R       = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    _REL_IMAGE  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+    _BLIP_TAG   = '{http://schemas.openxmlformats.org/drawingml/2006/main}blip'
+
+    if not doc_original or idx >= len(doc_original.paragraphs):
+        return
+
+    orig_part  = doc_original.part
+    nuevo_part = doc_nuevo.part
+    orig_p = doc_original.paragraphs[idx]._p
+    xml_copy = copy.deepcopy(orig_p)
+
+    rId_map: dict[str, str] = {}
+
+    for blip in xml_copy.iter(_BLIP_TAG):
+        r_embed = blip.get(f'{{{_NS_R}}}embed')
+        if not r_embed:
+            continue
+        if r_embed in rId_map:
+            blip.set(f'{{{_NS_R}}}embed', rId_map[r_embed])
+            continue
+        try:
+            img_part = orig_part.related_parts.get(r_embed)
+            if img_part is None:
+                continue
+            nuevo_rId = nuevo_part.relate_to(img_part, _REL_IMAGE)
+        except Exception:
+            try:
+                from docx.opc.part import Part
+                from docx.opc.packuri import PackURI
+                img_part2 = orig_part.related_parts.get(r_embed)
+                if img_part2 is None:
+                    continue
+                new_p = Part(
+                    PackURI(img_part2.partname),
+                    img_part2.content_type,
+                    img_part2._blob,
+                    nuevo_part.package,
+                )
+                nuevo_rId = nuevo_part.relate_to(new_p, _REL_IMAGE)
+            except Exception as exc:
+                logger.warning(f"Imagen {r_embed} no copiada: {exc}")
+                continue
+        rId_map[r_embed] = nuevo_rId
+        blip.set(f'{{{_NS_R}}}embed', nuevo_rId)
+
+    # Limpiar propiedades originales del párrafo (ej. sangrías manuales o alineación heredada)
+    # para que la nueva alineación pueda aplicarse limpiamente.
+    if xml_copy.pPr is not None:
+        xml_copy.remove(xml_copy.pPr)
+
+    _WNS_SECTPR = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}sectPr'
+    sect_pr = doc_nuevo.element.body.find(_WNS_SECTPR)
+    if sect_pr is not None:
+        sect_pr.addprevious(xml_copy)
+    else:
+        doc_nuevo.element.body.append(xml_copy)
+        
+    from docx.text.paragraph import Paragraph
+    return Paragraph(xml_copy, doc_nuevo._body)
 
 
 def _get_soffice_path() -> Optional[str]:
@@ -392,90 +497,6 @@ _get_soffice_path_cached = lru_cache(maxsize=1)(_get_soffice_path)
 # COPIA DE PORTADA DESDE DOCUMENTO ORIGINAL (preserva imágenes)
 # ═══════════════════════════════════════════════════════════
 
-def copiar_portada_desde_original(doc_original, doc_nuevo, n_portada: int) -> None:
-    """
-    Copia los primeros elementos del body del original al nuevo documento,
-    incluyendo PÁRRAFOS y TABLAS (ej: tabla Tutor/Autores de la portada).
-
-    Estrategia:
-      - Usa el _p XML del párrafo n_portada como centinela de corte.
-      - Itera los hijos directos del body (<w:p>, <w:tbl>, etc.).
-      - Para cada elemento: deepcopy + reescritura de rIds de imágenes.
-      - Se detiene al encontrar el centinela o el <w:sectPr>.
-    """
-    import copy
-
-    _NS_R       = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-    _REL_IMAGE  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
-    _BLIP_TAG   = '{http://schemas.openxmlformats.org/drawingml/2006/main}blip'
-    _WNS_SECTPR = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}sectPr'
-
-    orig_part  = doc_original.part
-    nuevo_part = doc_nuevo.part
-    body_nuevo = doc_nuevo.element.body
-
-    # Centinela: el XML del primer párrafo del cuerpo (post-portada)
-    all_paragraphs = doc_original.paragraphs
-    sentinel = all_paragraphs[n_portada]._p if n_portada < len(all_paragraphs) else None
-
-    # Cache rId original → rId nuevo
-    rId_map: dict[str, str] = {}
-
-    def _reparar_imagenes(xml_elem):
-        """Copia relaciones de imagen y reescribe rIds en el XML copiado."""
-        for blip in xml_elem.iter(_BLIP_TAG):
-            r_embed = blip.get(f'{{{_NS_R}}}embed')
-            if not r_embed:
-                continue
-            if r_embed in rId_map:
-                blip.set(f'{{{_NS_R}}}embed', rId_map[r_embed])
-                continue
-            try:
-                img_part = orig_part.related_parts.get(r_embed)
-                if img_part is None:
-                    continue
-                nuevo_rId = nuevo_part.relate_to(img_part, _REL_IMAGE)
-            except Exception:
-                try:
-                    from docx.opc.part import Part
-                    from docx.opc.packuri import PackURI
-                    img_part2 = orig_part.related_parts.get(r_embed)
-                    if img_part2 is None:
-                        continue
-                    new_p = Part(
-                        PackURI(img_part2.partname),
-                        img_part2.content_type,
-                        img_part2._blob,
-                        nuevo_part.package,
-                    )
-                    nuevo_rId = nuevo_part.relate_to(new_p, _REL_IMAGE)
-                except Exception as exc:
-                    logger.warning(f"Imagen {r_embed} no copiada: {exc}")
-                    continue
-            rId_map[r_embed] = nuevo_rId
-            blip.set(f'{{{_NS_R}}}embed', nuevo_rId)
-
-    for child in doc_original.element.body:
-        # Parar al llegar al primer párrafo del cuerpo real
-        if sentinel is not None and child is sentinel:
-            break
-        # Nunca copiar propiedades de sección
-        if child.tag == _WNS_SECTPR:
-            break
-
-        xml_copy = copy.deepcopy(child)
-        _reparar_imagenes(xml_copy)
-
-        sect_pr = body_nuevo.find(_WNS_SECTPR)
-        if sect_pr is not None:
-            sect_pr.addprevious(xml_copy)
-        else:
-            body_nuevo.append(xml_copy)
-
-
-
-
-
 def _detectar_n_portada(parrafos) -> int:
     """
     Detecta cuántos párrafos iniciales corresponden a la portada.
@@ -497,14 +518,70 @@ def _detectar_n_portada(parrafos) -> int:
         cat = p.get("categoria", "") if isinstance(p, dict) else getattr(p, "categoria", "")
         txt = (p.get("texto", "") if isinstance(p, dict) else getattr(p, "texto", "")).strip().lower()
 
-        if cat in ("TITULO_N1", "TITULO_N2"):
-            # Verificar si el texto indica inicio del cuerpo
-            for kw in _INICIO_CUERPO:
-                if txt.startswith(kw):
-                    return idx
+        is_title = cat.startswith("TITULO")
+        is_short_normal = cat == "PARRAFO_NORMAL" and len(txt) < 100
+
+        if is_title or is_short_normal:
+            if any(txt.startswith(kw) for kw in _INICIO_CUERPO):
+                return idx
 
         # Seguridad: si llegamos al párrafo 30 sin corte, no hay portada identificable
         if idx >= 30:
             return 0
 
     return 0
+
+def copiar_parrafo_xml(doc_original, doc_nuevo, idx: int):
+    import copy
+    _NS_R       = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    _REL_IMAGE  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+    _BLIP_TAG   = '{http://schemas.openxmlformats.org/drawingml/2006/main}blip'
+
+    if not doc_original or idx >= len(doc_original.paragraphs):
+        return None
+
+    orig_part  = doc_original.part
+    nuevo_part = doc_nuevo.part
+    orig_p = doc_original.paragraphs[idx]._p
+    xml_copy = copy.deepcopy(orig_p)
+
+    rId_map = {}
+
+    for blip in xml_copy.iter(_BLIP_TAG):
+        r_embed = blip.get(f'{{{_NS_R}}}embed')
+        if not r_embed:
+            continue
+        if r_embed in rId_map:
+            blip.set(f'{{{_NS_R}}}embed', rId_map[r_embed])
+            continue
+        try:
+            img_part = orig_part.related_parts.get(r_embed)
+            if img_part is None:
+                continue
+            nuevo_rId = nuevo_part.relate_to(img_part, _REL_IMAGE)
+        except Exception:
+            try:
+                from docx.opc.part import Part
+                from docx.opc.packuri import PackURI
+                img_part2 = orig_part.related_parts.get(r_embed)
+                if img_part2 is None:
+                    continue
+                new_p = Part(PackURI(img_part2.partname), img_part2.content_type, img_part2._blob, nuevo_part.package)
+                nuevo_rId = nuevo_part.relate_to(new_p, _REL_IMAGE)
+            except Exception:
+                continue
+        rId_map[r_embed] = nuevo_rId
+        blip.set(f'{{{_NS_R}}}embed', nuevo_rId)
+
+    if xml_copy.pPr is not None:
+        xml_copy.remove(xml_copy.pPr)
+
+    _WNS_SECTPR = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}sectPr'
+    sect_pr = doc_nuevo.element.body.find(_WNS_SECTPR)
+    if sect_pr is not None:
+        sect_pr.addprevious(xml_copy)
+    else:
+        doc_nuevo.element.body.append(xml_copy)
+        
+    from docx.text.paragraph import Paragraph
+    return Paragraph(xml_copy, doc_nuevo._body)

@@ -16,6 +16,7 @@ class ParrafoCorregido(BaseModel):
     texto: str
     categoria: str
     textAlign: Optional[str] = None  # 'left' | 'center' | 'right' — alineación personalizada
+    id: Optional[int] = None         # ID original del párrafo en el docx para copiar la portada correctamente
 
 
 class DatosFinales(BaseModel):

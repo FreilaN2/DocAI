@@ -9,7 +9,7 @@ const APA_STYLES = {
   TITULO_N3:     { label: 'Título N3',      color: '#7c3aed', bold: true,  italic: false, defaultAlign: 'left',   indent: '0.5in',  paddingLeft: '0' },
   TITULO_N4:     { label: 'Título N4',      color: '#9333ea', bold: true,  italic: true,  defaultAlign: 'left',   indent: '0.5in',  paddingLeft: '0' },
   TITULO_N5:     { label: 'Título N5',      color: '#a855f7', bold: false, italic: true,  defaultAlign: 'left',   indent: '0.5in',  paddingLeft: '0' },
-  PARRAFO_NORMAL:{ label: 'Párrafo',        color: '#64748b', bold: false, italic: false, defaultAlign: 'left',   indent: '0.5in',  paddingLeft: '0' },
+  PARRAFO_NORMAL:{ label: 'Párrafo',        color: '#64748b', bold: false, italic: false, defaultAlign: 'justify', indent: '0.5in',  paddingLeft: '0' },
   REFERENCIA:    { label: 'Referencia',     color: '#059669', bold: false, italic: false, defaultAlign: 'left',   indent: '0',      paddingLeft: '0.5in' },
   CITA_LARGA:    { label: 'Cita larga',     color: '#d97706', bold: false, italic: false, defaultAlign: 'left',   indent: '0',      paddingLeft: '0.5in' },
   PORTADA_IMAGEN:{ label: 'Imagen portada', color: '#0ea5e9', bold: false, italic: false, defaultAlign: 'center', indent: '0',      paddingLeft: '0' },
@@ -55,6 +55,7 @@ function EditableParagraph({
   uploadId,
   flatIndex, dragFrom, dragOver,
   onDragStart, onDragOver, onDragEnd,
+  isPortada = false,
 }) {
   const [isEditing, setIsEditing]     = useState(false);
   const [showCatMenu, setShowCatMenu] = useState(false);
@@ -66,6 +67,7 @@ function EditableParagraph({
   const textAlign = item.textAlign || style.defaultAlign || 'left';
   const isDragging = dragFrom === flatIndex;
   const isDragOver = dragOver === flatIndex && dragFrom !== flatIndex;
+  const isCoverItem = isPortada && (item.categoria.startsWith('TITULO') || item.categoria === 'PARRAFO_NORMAL' || item.categoria.startsWith('PORTADA'));
 
   // Auto-resize textarea
   useEffect(() => {
@@ -142,6 +144,7 @@ function EditableParagraph({
               <AlignBtn icon="format_align_left"   active={textAlign === 'left'}    title="Alinear izquierda" onClick={() => onAlignChange(item.id, 'left')} />
               <AlignBtn icon="format_align_center" active={textAlign === 'center'}  title="Centrar"           onClick={() => onAlignChange(item.id, 'center')} />
               <AlignBtn icon="format_align_right"  active={textAlign === 'right'}   title="Alinear derecha"  onClick={() => onAlignChange(item.id, 'right')} />
+              <AlignBtn icon="format_align_justify" active={textAlign === 'justify'} title="Justificar"       onClick={() => onAlignChange(item.id, 'justify')} />
               {/* Separador */}
               <div style={{ width: '1px', height: '16px', background: '#e2e8f0' }} />
             </>
@@ -253,8 +256,8 @@ function EditableParagraph({
   const baseStyle = {
     fontFamily,
     fontSize: '12pt',
-    lineHeight: '2',
-    marginTop: style.label.startsWith('Título') ? '1rem' : '0',
+    lineHeight: isCoverItem ? '1.5' : '2',
+    marginTop: (style.label.startsWith('Título') && !isCoverItem) ? '1rem' : '0',
     marginBottom: '0',
     textIndent: item.categoria === 'REFERENCIA' ? '0' : style.indent,
     paddingLeft: item.categoria === 'REFERENCIA' ? '0.5in' : (style.paddingLeft || '0'),
@@ -311,8 +314,17 @@ function EditableParagraph({
           spellCheck={true}
         />
       ) : (
-        <div style={baseStyle} onClick={() => setIsEditing(true)} title="Clic para editar">
-          {item.texto || <span style={{ opacity: 0.3, fontStyle: 'italic' }}>(párrafo vacío)</span>}
+        <div style={{ ...baseStyle, width: '100%' }} onClick={() => setIsEditing(true)} title="Clic para editar">
+          {!item.texto ? (
+            <span style={{ opacity: 0.3, fontStyle: 'italic' }}>(párrafo vacío)</span>
+          ) : item.texto.includes('\t') ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+              <span>{item.texto.split('\t')[0]}</span>
+              <span>{item.texto.split('\t').slice(1).join(' ')}</span>
+            </div>
+          ) : (
+            item.texto
+          )}
         </div>
       )}
     </div>
@@ -320,7 +332,7 @@ function EditableParagraph({
 }
 
 // ─── Hoja de papel ────────────────────────────────────────────────────────────
-function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, onAlignChange, onDragStart, onDragOver, onDragEnd, dragFrom, dragOver, uploadId, fullscreen = false, pageNumber = 1 }) {
+function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, onAlignChange, onDragStart, onDragOver, onDragEnd, dragFrom, dragOver, uploadId, fullscreen = false, pageNumber = 1, isPortada = false }) {
   const fontFamily =
     fuente === 'Times New Roman' ? '"Times New Roman", Times, serif' :
     fuente === 'Arial'           ? 'Arial, Helvetica, sans-serif'    :
@@ -343,9 +355,11 @@ function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, on
       }}
     >
       {/* Número de página */}
-      <div style={{ position: 'absolute', top: fullscreen ? '38px' : '0.4in', right: fullscreen ? '100px' : '1in', fontSize: '12pt', fontFamily, lineHeight: '1' }}>
-        {pageNumber}
-      </div>
+      {!isPortada && (
+        <div style={{ position: 'absolute', top: fullscreen ? '38px' : '0.4in', right: fullscreen ? '100px' : '1in', fontSize: '12pt', fontFamily, lineHeight: '1' }}>
+          {pageNumber}
+        </div>
+      )}
 
       <div style={{ paddingTop: fullscreen ? '20px' : '0.2in' }}>
         {parrafos.map((item) => (
@@ -364,6 +378,7 @@ function PaperSheet({ parrafos, edicion, fuente, onLabelChange, onTextChange, on
             onDragStart={onDragStart}
             onDragOver={onDragOver}
             onDragEnd={onDragEnd}
+            isPortada={isPortada}
           />
         ))}
       </div>
@@ -397,15 +412,36 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
     const MAX_WEIGHT = 3500;
     const pages = [];
     let page = [], weight = 0;
-    let refStarted = false, coverDone = false;
+    let refStarted = false;
 
-    items.forEach((item) => {
-      const isCover = item.categoria === 'PORTADA_IMAGEN' || item.categoria === 'PORTADA_ESPACIO';
+    // Detectar dónde termina la portada (inicio del cuerpo real)
+    const INICIO_CUERPO = [
+      'capitulo', 'capítulo', 'resumen', 'abstract',
+      'introduccion', 'introducción', 'el problema',
+      'planteamiento', 'agradecimientos', 'dedicatoria',
+      'indice', 'índice', 'referencias', 'bibliograf',
+    ];
+    let nPortada = 0;
+    for (let i = 0; i < Math.min(items.length, 30); i++) {
+      const item = items[i];
+      const cat = item.categoria || '';
+      const txt = (item.texto || '').trim().toLowerCase();
+      
+      const isTitle = cat.startsWith('TITULO');
+      const isShortNormal = cat === 'PARRAFO_NORMAL' && txt.length < 100;
+      
+      if (isTitle || isShortNormal) {
+        if (INICIO_CUERPO.some(kw => txt.startsWith(kw))) {
+          nPortada = i;
+          break;
+        }
+      }
+    }
 
-      // Salto de página al terminar portada
-      if (!coverDone && !isCover && page.some(p => p.categoria === 'PORTADA_IMAGEN')) {
+    items.forEach((item, index) => {
+      // Salto de página explícito al terminar la portada
+      if (nPortada > 0 && index === nPortada) {
         if (page.length) { pages.push(page); page = []; weight = 0; }
-        coverDone = true;
       }
 
       let w = (item.texto ? item.texto.length : 0) + 100;
@@ -427,10 +463,10 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
     });
 
     if (page.length) pages.push(page);
-    return pages.length ? pages : [[]];
+    return { pages: pages.length ? pages : [[]], nPortada };
   };
 
-  const pages = chunkParagraphs(parrafosWithIdx);
+  const { pages, nPortada } = chunkParagraphs(parrafosWithIdx);
 
   // ESC para salir del fullscreen
   useEffect(() => {
@@ -475,7 +511,7 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
 
         <div className="flex flex-col gap-6 w-full items-center pb-4">
           {pages.map((pageData, index) => (
-            <PaperSheet key={index} {...sharedProps} parrafos={pageData} pageNumber={index + 1} />
+            <PaperSheet key={index} {...sharedProps} parrafos={pageData} pageNumber={index + 1} isPortada={nPortada > 0 && index === 0} />
           ))}
         </div>
       </div>
@@ -537,7 +573,7 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22, delay: index * 0.05, ease: 'easeOut' }}
                 >
-                  <PaperSheet {...sharedProps} parrafos={pageData} pageNumber={index + 1} fullscreen />
+                  <PaperSheet {...sharedProps} parrafos={pageData} pageNumber={index + 1} fullscreen isPortada={nPortada > 0 && index === 0} />
                 </motion.div>
               ))}
             </div>
