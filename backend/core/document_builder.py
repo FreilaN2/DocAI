@@ -399,7 +399,7 @@ def _force_update_fields(doc) -> None:
     if not settings:
         return
     element = getattr(settings, 'element', None)
-    if not element:
+    if element is None:
         return
     update = OxmlElement('w:updateFields')
     update.set(qn('w:val'), 'true')

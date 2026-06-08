@@ -363,7 +363,18 @@ export default function Editor() {
         n_portada: nPortada,
       };
       const response = await api.post('/generar-final/', payload);
-      window.location.href = `${api.defaults.baseURL}/descargar/${response.data.file_id}`;
+      
+      // Descargar el archivo usando Blob para evitar que el Service Worker intercepte la navegación
+      const downloadResp = await api.get(`/descargar/${response.data.file_id}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([downloadResp.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', payload.filename || 'documento_apa.docx');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
     } catch (error) {
       alert(t('editor.generate_error'));
     } finally {

@@ -458,10 +458,13 @@ async def generar_final(
         añadir_marca_de_agua(doc)
 
     try:
+        logger.info(f"Guardando DOCX en {out_docx}...")
         doc.save(out_docx)
+        logger.info(f"DOCX guardado exitosamente.")
     except PermissionError:
         raise HTTPException(status_code=500, detail="No se pudo guardar el archivo DOCX.")
     except Exception as e:
+        logger.error(f"Excepcion al guardar DOCX: {e}")
         raise HTTPException(status_code=500, detail=f"No se pudo generar el archivo DOCX: {e}")
 
     # --- Conversión a PDF (solo Pro) ---
