@@ -369,7 +369,9 @@ export default function Editor() {
       const url = window.URL.createObjectURL(new Blob([downloadResp.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', payload.filename || 'documento_apa.docx');
+      const baseName = (payload.filename || 'documento_apa.docx').replace(/\.[^.]+$/, '');
+      const downloadName = `${baseName}.${downloadFormat}`;
+      link.setAttribute('download', downloadName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
