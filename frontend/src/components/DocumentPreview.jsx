@@ -14,6 +14,7 @@ const APA_STYLES = {
   CITA_LARGA:    { label: 'Cita larga',     color: '#d97706', bold: false, italic: false, defaultAlign: 'left',   indent: '0',      paddingLeft: '0.5in' },
   PORTADA_IMAGEN:{ label: 'Imagen portada', color: '#0ea5e9', bold: false, italic: false, defaultAlign: 'center', indent: '0',      paddingLeft: '0' },
   PORTADA_ESPACIO:{ label: 'Espacio',       color: '#cbd5e1', bold: false, italic: false, defaultAlign: 'left',   indent: '0',      paddingLeft: '0' },
+  PORTADA_BLOQUE: { label: 'Portada (Protegida)', color: '#334155', bold: true, italic: false, defaultAlign: 'center', indent: '0', paddingLeft: '0' },
 };
 
 const CATEGORY_OPTIONS = [
@@ -215,6 +216,21 @@ function EditableParagraph({
   // ── PORTADA_ESPACIO ───────────────────────────────────────────────────────
   if (item.categoria === 'PORTADA_ESPACIO') {
     return <div style={{ lineHeight: '2', height: '1.5em' }} />;
+  }
+
+  // ── PORTADA_BLOQUE ─────────────────────────────────────────────────────────
+  if (item.categoria === 'PORTADA_BLOQUE') {
+    return (
+      <div
+        className="relative flex items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 dark:bg-slate-800/50 my-4"
+        style={{ minHeight: '150px' }}
+      >
+        <div className="text-center">
+          <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">lock</span>
+          <p className="text-slate-600 dark:text-slate-300 font-bold text-sm whitespace-pre-wrap">{item.texto}</p>
+        </div>
+      </div>
+    );
   }
 
   // ── PORTADA_IMAGEN ────────────────────────────────────────────────────────
@@ -457,6 +473,7 @@ export default function DocumentPreview({ parrafos, edicion, fuente, onLabelChan
       let w = (item.texto ? item.texto.length : 0) + 100;
       if (item.categoria?.startsWith('TITULO')) w += 150;
       if (item.categoria === 'PORTADA_IMAGEN') w += 400;
+      if (item.categoria === 'PORTADA_BLOQUE') w += 3500; // Forzar salto de página
 
       const isRefHdr = item.categoria?.startsWith('TITULO') && item.texto?.toLowerCase().includes('referencia');
       const isRefLine = item.categoria === 'REFERENCIA';

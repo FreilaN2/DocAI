@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT
+from docx.enum.section import WD_SECTION_START
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -262,7 +263,6 @@ async def generar_final(
             [p.dict() for p in datos.parrafos]
         )
 
-    doc    = Document()
     reglas = dict(NORMAS_APA.get(datos.edicion, NORMAS_APA["7ma"]))
     reglas["edicion"] = datos.edicion
     if datos.edicion == "6ta":
@@ -272,21 +272,63 @@ async def generar_final(
         reglas["fuente"] = validar_fuente_apa(datos.fuente)
         reglas["tamano"] = FUENTES_APA[reglas["fuente"]]["tamano"]
 
-    for section in doc.sections:
-        section.page_width = section.page_height = None
-        section.page_width  = LETTER_PAGE["width"]
-        section.page_height = LETTER_PAGE["height"]
-        m = Inches(reglas["margen"])
-        section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = m
+    if doc_original:
+        doc = doc_original
+        if n_portada > 0:
+            end_element = doc.paragraphs[n_portada]._p if n_portada < len(doc.paragraphs) else None
+            # Eliminar todos los elementos desde el final hasta end_element (inclusive)
+            for child in reversed(doc.element.body):
+                doc.element.body.remove(child)
+                if child == end_element:
+                    break
+            
+            # Limpiar saltos de página y párrafos vacíos al final de la portada preservada
+            for child in reversed(doc.element.body):
+                if child.tag.endswith('sectPr'):
+                    continue
+                if child.tag.endswith('p'):
+                    from docx.text.paragraph import Paragraph
+                    p = Paragraph(child, doc)
+                    if not p.text.strip():
+                        # Eliminar párrafo vacío
+                        doc.element.body.remove(child)
+                    else:
+                        # Tiene texto. Quitar cualquier salto de página manual para evitar doble salto
+                        for r in child.findall('.//w:r', namespaces=child.nsmap):
+                            for br in r.findall('.//w:br', namespaces=child.nsmap):
+                                if br.get(f'{{{child.nsmap["w"]}}}type') == 'page':
+                                    r.remove(br)
+                        break
+                else:
+                    break
 
-    ns = doc.styles["Normal"]
-    ns.font.name = reglas["fuente"]
-    ns.font.size = Pt(reglas["tamano"])
-    nspf = ns.paragraph_format
-    nspf.line_spacing_rule = WD_LINE_SPACING.DOUBLE
-    nspf.space_before = nspf.space_after = Pt(0)
-    nspf.first_line_indent = Inches(reglas["sangria_primera_linea"])
-    nspf.left_indent = Inches(0)
+            # Añadir sección para el resto del documento con márgenes APA
+            new_sec = doc.add_section(WD_SECTION_START.NEW_PAGE)
+            new_sec.page_width = LETTER_PAGE["width"]
+            new_sec.page_height = LETTER_PAGE["height"]
+            new_sec.top_margin = new_sec.bottom_margin = new_sec.left_margin = new_sec.right_margin = Inches(reglas["margen"])
+            logger.info(f"Portada preservada conservando los primeros {n_portada} párrafos del documento original.")
+        else:
+            # Vaciar el body completo
+            for child in reversed(doc.element.body):
+                doc.element.body.remove(child)
+            # Aplicar márgenes APA a la única sección
+            section = doc.sections[0]
+            section.page_width = LETTER_PAGE["width"]
+            section.page_height = LETTER_PAGE["height"]
+            section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(reglas["margen"])
+    else:
+        doc = Document()
+        section = doc.sections[0]
+        section.page_width = LETTER_PAGE["width"]
+        section.page_height = LETTER_PAGE["height"]
+        section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(reglas["margen"])
+
+    # Asegurar que los estilos Heading existan (documentos importados pueden no tenerlos)
+    from docx.enum.style import WD_STYLE_TYPE
+    for h_style in ["Heading 1", "Heading 2", "Heading 3", "Heading 4", "Heading 5"]:
+        if h_style not in doc.styles:
+            doc.styles.add_style(h_style, WD_STYLE_TYPE.PARAGRAPH)
 
     _configurar_encabezado_paginas(doc)
 
@@ -294,60 +336,13 @@ async def generar_final(
     # ORDEN APA: 1) Portada  2) Índice  3) Cuerpo
     # ═══════════════════════════════════════════════════════
 
-    # --- 1. Portada ---
-    if n_portada > 0:
-        from core.document_builder import copiar_parrafo_xml
-        try:
-            for i in range(n_portada):
-                p = datos.parrafos[i]
-                if p.categoria == "PORTADA_IMAGEN":
-                    if doc_original and getattr(p, "id", None) is not None:
-                        ph = copiar_parrafo_xml(doc_original, doc, p.id)
-                        if ph:
-                            _MAP_ALIGN = {
-                                'left':   WD_ALIGN_PARAGRAPH.LEFT,
-                                'center': WD_ALIGN_PARAGRAPH.CENTER,
-                                'right':  WD_ALIGN_PARAGRAPH.RIGHT,
-                            }
-                            # Aplicar alineación seleccionada o centrar por defecto
-                            if getattr(p, "textAlign", None) in _MAP_ALIGN:
-                                ph.alignment = _MAP_ALIGN[p.textAlign]
-                            else:
-                                ph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                elif p.categoria == "PORTADA_ESPACIO":
-                    pass # Omitir espacios para que quepa en 1 pág
-                else:
-                    ph = doc.add_paragraph(p.texto)
-                    configurar_parrafo_estilo(ph, p.categoria, reglas)
-                    
-                    # Forzar formato compacto (interlineado 1.5 y sin espacios extra) para la portada
-                    ph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-                    ph.paragraph_format.space_before = Pt(0)
-                    ph.paragraph_format.space_after = Pt(0)
-                    
-                    # Si el párrafo tiene una tabulación, añadir un Tab Stop alineado a la derecha
-                    if '\t' in p.texto:
-                        tab_stops = ph.paragraph_format.tab_stops
-                        tab_stops.add_tab_stop(Inches(6.5), WD_TAB_ALIGNMENT.RIGHT)
-                    
-                    # Forzar alineación de la preview si el usuario la modificó
-                    if getattr(p, "textAlign", None):
-                        _MAP_ALIGN = {
-                            'left':   WD_ALIGN_PARAGRAPH.LEFT,
-                            'center': WD_ALIGN_PARAGRAPH.CENTER,
-                            'right':  WD_ALIGN_PARAGRAPH.RIGHT,
-                        }
-                        if p.textAlign in _MAP_ALIGN:
-                            ph.alignment = _MAP_ALIGN[p.textAlign]
-            doc.add_page_break()
-            logger.info(f"Portada generada con {n_portada} elementos del frontend.")
-        except Exception as e:
-            logger.warning(f"Error copiando portada, se omite: {e}")
+    # Filtrar PORTADA_BLOQUE del frontend para trabajar con el resto del cuerpo
+    parrafos_cuerpo = [p for p in datos.parrafos if p.categoria != "PORTADA_BLOQUE"]
 
     # --- 2. Índice (solo Pro) ---
     if datos.incluir_indice and datos.plan == "pro":
         headings = []
-        for p in datos.parrafos[n_portada:]:
+        for p in parrafos_cuerpo:
             cat = _normalizar_categoria(p.categoria)
             if "TITULO" in cat:
                 try:
@@ -376,8 +371,8 @@ async def generar_final(
     reference_started = False
     paragraph_counter = 0
     reference_buffer: list[ParrafoCorregido] = []
-    i = n_portada          # ← Empezamos DESPUÉS de los párrafos de portada
-    parrafos = datos.parrafos
+    i = 0
+    parrafos = parrafos_cuerpo
 
     while i < len(parrafos):
         p   = parrafos[i]

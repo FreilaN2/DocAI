@@ -525,8 +525,8 @@ def _detectar_n_portada(parrafos) -> int:
             if any(txt.startswith(kw) for kw in _INICIO_CUERPO):
                 return idx
 
-        # Seguridad: si llegamos al párrafo 30 sin corte, no hay portada identificable
-        if idx >= 30:
+        # Seguridad: si llegamos al párrafo 100 sin corte, no hay portada identificable
+        if idx >= 100:
             return 0
 
     return 0
@@ -585,3 +585,59 @@ def copiar_parrafo_xml(doc_original, doc_nuevo, idx: int):
         
     from docx.text.paragraph import Paragraph
     return Paragraph(xml_copy, doc_nuevo._body)
+
+
+def copiar_elemento_xml(doc_original, doc_nuevo, element):
+    """
+    Copia cualquier elemento XML (párrafo, tabla, forma) conservando EXACTAMENTE
+    su formato original (alineaciones, estilos, bordes).
+    """
+    import copy
+    _NS_R       = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    _REL_IMAGE  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+    _BLIP_TAG   = '{http://schemas.openxmlformats.org/drawingml/2006/main}blip'
+
+    if not doc_original or element is None:
+        return None
+
+    orig_part  = doc_original.part
+    nuevo_part = doc_nuevo.part
+    xml_copy = copy.deepcopy(element)
+
+    rId_map = {}
+
+    for blip in xml_copy.iter(_BLIP_TAG):
+        r_embed = blip.get(f'{{{_NS_R}}}embed')
+        if not r_embed:
+            continue
+        if r_embed in rId_map:
+            blip.set(f'{{{_NS_R}}}embed', rId_map[r_embed])
+            continue
+        try:
+            img_part = orig_part.related_parts.get(r_embed)
+            if img_part is None:
+                continue
+            nuevo_rId = nuevo_part.relate_to(img_part, _REL_IMAGE)
+        except Exception:
+            try:
+                from docx.opc.part import Part
+                from docx.opc.packuri import PackURI
+                img_part2 = orig_part.related_parts.get(r_embed)
+                if img_part2 is None:
+                    continue
+                new_p = Part(PackURI(img_part2.partname), img_part2.content_type, img_part2._blob, nuevo_part.package)
+                nuevo_rId = nuevo_part.relate_to(new_p, _REL_IMAGE)
+            except Exception:
+                continue
+        rId_map[r_embed] = nuevo_rId
+        blip.set(f'{{{_NS_R}}}embed', nuevo_rId)
+
+    # NO eliminamos xml_copy.pPr para mantener el formato EXACTO original
+    _WNS_SECTPR = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}sectPr'
+    sect_pr = doc_nuevo.element.body.find(_WNS_SECTPR)
+    if sect_pr is not None:
+        sect_pr.addprevious(xml_copy)
+    else:
+        doc_nuevo.element.body.append(xml_copy)
+        
+    return xml_copy

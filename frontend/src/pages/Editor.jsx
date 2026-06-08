@@ -234,9 +234,41 @@ export default function Editor() {
         }
         if (evento.tipo === 'finalizado') {
           setProgreso(100);
+
+          let detalles = evento.detalles;
+          let nPortada = 0;
+          let realNPortada = 0;
+          const INICIO_CUERPO = ['capitulo', 'capítulo', 'resumen', 'abstract', 'introduccion', 'introducción', 'el problema', 'planteamiento', 'agradecimientos', 'dedicatoria', 'indice', 'índice', 'referencias', 'bibliograf'];
+          
+          for (let idx = 0; idx < Math.min(detalles.length, 100); idx++) {
+            const item = detalles[idx];
+            const cat = item.categoria || '';
+            const txt = (item.texto || '').trim().toLowerCase();
+            const isTitle = cat.startsWith('TITULO');
+            const isShortNormal = cat === 'PARRAFO_NORMAL' && txt.length < 100;
+            if (isTitle || isShortNormal) {
+              if (INICIO_CUERPO.some(kw => txt.startsWith(kw))) {
+                nPortada = idx;
+                realNPortada = typeof item.id === 'number' ? item.id : idx;
+                break;
+              }
+            }
+          }
+
+          if (nPortada > 0) {
+            const portadaBloque = {
+              id: 'portada_bloque',
+              texto: 'PORTADA ORIGINAL DEL DOCUMENTO\n\n(Se ha bloqueado la edición para conservar el formato, imágenes y alineaciones originales intactas. Se copiará exactamente igual al documento original.)',
+              categoria: 'PORTADA_BLOQUE',
+              readOnly: true
+            };
+            detalles = [portadaBloque, ...detalles.slice(nPortada)];
+          }
+
           setResult({
-            detalles: evento.detalles,
+            detalles: detalles,
             resumen: evento.stats,
+            nPortada: realNPortada
           });
           es.close();
           esRef.current = null;
@@ -318,37 +350,13 @@ export default function Editor() {
     setLoading(true);
     try {
       const savedFilename = sessionStorage.getItem('docai_pending_filename');
-
-      const INICIO_CUERPO = [
-        'capitulo', 'capítulo', 'resumen', 'abstract',
-        'introduccion', 'introducción', 'el problema',
-        'planteamiento', 'agradecimientos', 'dedicatoria',
-        'indice', 'índice', 'referencias', 'bibliograf',
-      ];
-      let nPortada = 0;
-      if (result?.detalles) {
-        for (let idx = 0; idx < Math.min(result.detalles.length, 30); idx++) {
-          const item = result.detalles[idx];
-          const cat = item.categoria || '';
-          const txt = (item.texto || '').trim().toLowerCase();
-          
-          const isTitle = cat.startsWith('TITULO');
-          const isShortNormal = cat === 'PARRAFO_NORMAL' && txt.length < 100;
-          
-          if (isTitle || isShortNormal) {
-            if (INICIO_CUERPO.some(kw => txt.startsWith(kw))) {
-              nPortada = idx;
-              break;
-            }
-          }
-        }
-      }
+      const nPortada = result.nPortada || 0;
 
       const payload = {
         edicion, fuente,
         filename: file ? file.name : (savedFilename || 'documento_docai.docx'),
         plan,
-        parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria, textAlign: d.textAlign || null, id: d.id })),
+        parrafos: result.detalles.map(d => ({ texto: d.texto, categoria: d.categoria, textAlign: d.textAlign || null, id: typeof d.id === 'number' ? d.id : null })),
         incluir_indice: isPro ? includeTOC : false,
         formato: downloadFormat,
         upload_id: uploadId || null,
