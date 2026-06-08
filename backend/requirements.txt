@@ -36,3 +36,9 @@ requests==2.32.5          # Peticiones HTTP
 python-dateutil==2.9.0.post0 # Manejo de fechas para cálculo de tokens
 slowapi==0.1.9              # Rate limiting para FastAPI (protección de endpoints públicos)
 watchfiles==1.2.0
+
+# --- Notificaciones Push PWA ---
+pywebpush==2.3.0          # Envío de notificaciones push web (PWA)
+py-vapid==1.9.4           # Generación de claves VAPID para web push
+http-ece==1.2.1           # Encriptación para notificaciones push
+aiohttp==3.14.1           # Cliente HTTP asíncrono (dependencia de pywebpush)

@@ -25,7 +25,7 @@ from core.config import BASE_DIR, get_frontend_dir
 from core.limiter import limiter
 from core.dependencies import get_admin_user
 from core.models import User
-from routers import auth, apa, pagos, admin
+from routers import auth, apa, pagos, admin, notifications
 
 # ─── Configuración global ─────────────────────────────────
 
@@ -66,6 +66,7 @@ app.include_router(auth.router)
 app.include_router(apa.router)
 app.include_router(pagos.router)
 app.include_router(admin.router)
+app.include_router(notifications.router)
 
 
 # ─── Startup ──────────────────────────────────────────────
@@ -154,6 +155,31 @@ async def listar_packs(db: Session = Depends(get_db)):
     packs = db.query(TokenPack).filter(TokenPack.is_active == True).all()
     return [{"id": p.id, "name": p.name, "price": float(p.price), "tokens": p.tokens} for p in packs]
 
+# ─── Archivos PWA ─────────────────────────────────────────
+
+@app.get("/manifest.webmanifest")
+async def manifest():
+    frontend = get_frontend_dir()
+    manifest_path = os.path.join(frontend, "manifest.webmanifest")
+    if os.path.exists(manifest_path):
+        return FileResponse(manifest_path)
+    raise HTTPException(status_code=404, detail="manifest.webmanifest no encontrado")
+
+@app.get("/sw.js")
+async def service_worker():
+    frontend = get_frontend_dir()
+    sw_path = os.path.join(frontend, "sw.js")
+    if os.path.exists(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="sw.js no encontrado")
+
+@app.get("/workbox-{filename}")
+async def workbox_files(filename: str):
+    frontend = get_frontend_dir()
+    workbox_path = os.path.join(frontend, f"workbox-{filename}")
+    if os.path.exists(workbox_path):
+        return FileResponse(workbox_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="Workbox file no encontrado")
 
 # ─── Frontend React (catchall) ────────────────────────────
 

@@ -13,8 +13,10 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import Support from './pages/Support';
 import Tools from './pages/Tools';
 import AdminPanel from './pages/AdminPanel';
+import InstallPWA from './components/InstallPWA'
 
 function App() {
+  // Efecto polling de usuario y pagos
   useEffect(() => {
     const pollUser = async () => {
       const token = localStorage.getItem('token');
@@ -26,7 +28,6 @@ function App() {
         const oldDataStr = localStorage.getItem('user');
         let updated = false;
 
-        // Check for payment status changes using a localStorage flag
         if (newData.lastPaymentId) {
           const notifiedKey = `notified_payment_${newData.lastPaymentId}`;
           const isNotified = localStorage.getItem(notifiedKey);
@@ -46,7 +47,6 @@ function App() {
         
         if (oldDataStr) {
           const oldData = JSON.parse(oldDataStr);
-          // If plan or tokens changed magically (e.g. admin changed them directly)
           if (newData.plan !== oldData.plan || newData.tokens !== oldData.tokens || updated) {
             localStorage.setItem('user', JSON.stringify(newData));
             window.dispatchEvent(new Event('storage'));
@@ -60,12 +60,35 @@ function App() {
       }
     };
 
-    const interval = setInterval(pollUser, 15000); // Check every 15 seconds
-    // Optional: do an immediate check after 3 seconds
+    const interval = setInterval(pollUser, 15000);
     setTimeout(pollUser, 3000);
 
     return () => clearInterval(interval);
   }, []);
+
+  //Efecto para notificaciones push
+  useEffect(() => {
+    const initNotifications = async () => {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      try {
+        const { subscribeToPushNotifications, saveSubscription } = await import('./services/notifications')
+        const subscription = await subscribeToPushNotifications()
+        
+        if (subscription) {
+          await saveSubscription(subscription)
+        }
+      } catch (err) {
+        console.log('Notificaciones push no disponibles:', err)
+      }
+    }
+
+    // Esperar un poco a que la app cargue completamente
+    const timeout = setTimeout(initNotifications, 5000)
+
+    return () => clearTimeout(timeout)
+  }, [])
 
   return (
     <Router>
@@ -77,6 +100,9 @@ function App() {
           success: { iconTheme: { primary: '#ff6b00', secondary: '#fff' } }
         }}
       />
+      
+      <InstallPWA />
+
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/profile" element={<Profile />} />

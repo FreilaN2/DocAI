@@ -1,0 +1,172 @@
+Listado de rutas de carpetas
+
+C:.
+|   .gitignore
+|   database.sql
+|   estructura_proyecto.txt
+|   README.md
+|   
++---backend
+|   |   .env
+|   |   .gitignore
+|   |   check_tokens.py
+|   |   main.py
+|   |   nixpacks.toml
+|   |   Procfile
+|   |   railway.toml
+|   |   requirements.txt
+|   |   tes_doc.py
+|   |   
+|   +---core
+|   |   |   apa_ai.py
+|   |   |   apa_rules.py
+|   |   |   auth.py
+|   |   |   bcv_scraper.py
+|   |   |   binance_pay.py
+|   |   |   config.py
+|   |   |   constants.py
+|   |   |   database.py
+|   |   |   dependencies.py
+|   |   |   document_builder.py
+|   |   |   groq_pool.py
+|   |   |   limiter.py
+|   |   |   models.py
+|   |   |   paypal.py
+|   |   |   schemas.py
+|   |   |   storage.py
+|   |   |   token_service.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           apa_ai.cpython-314.pyc
+|   |           apa_rules.cpython-314.pyc
+|   |           auth.cpython-314.pyc
+|   |           bcv_scraper.cpython-314.pyc
+|   |           binance_pay.cpython-314.pyc
+|   |           config.cpython-314.pyc
+|   |           constants.cpython-314.pyc
+|   |           database.cpython-314.pyc
+|   |           dependencies.cpython-314.pyc
+|   |           document_builder.cpython-314.pyc
+|   |           groq_pool.cpython-314.pyc
+|   |           limiter.cpython-314.pyc
+|   |           models.cpython-314.pyc
+|   |           paypal.cpython-314.pyc
+|   |           schemas.cpython-314.pyc
+|   |           storage.cpython-314.pyc
+|   |           token_service.cpython-314.pyc
+|   |           __init__.cpython-314.pyc
+|   |           
+|   +---dist
+|   |   |   binance.png
+|   |   |   favicon.png
+|   |   |   index.html
+|   |   |   LOGO.png
+|   |   |   LOGO2.png
+|   |   |   robots.txt
+|   |   |   
+|   |   \---assets
+|   |           index-BT9dPmPi.js
+|   |           index-DrzkP6Nw.css
+|   |           
+|   +---fonts
+|   |       arial.ttf
+|   |       arialbd.ttf
+|   |       arialbi.ttf
+|   |       ariali.ttf
+|   |       calibri.ttf
+|   |       calibrib.ttf
+|   |       calibrii.ttf
+|   |       calibril.ttf
+|   |       calibrili.ttf
+|   |       calibriz.ttf
+|   |       georgia.ttf
+|   |       georgiab.ttf
+|   |       georgiai.ttf
+|   |       georgiaz.ttf
+|   |       l_10646.ttf
+|   |       times.ttf
+|   |       timesbd.ttf
+|   |       timesbi.ttf
+|   |       timesi.ttf
+|   |       
+|   +---node_modules
+|   +---processed
+|   +---routers
+|   |   |   admin.py
+|   |   |   apa.py
+|   |   |   auth.py
+|   |   |   pagos.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           admin.cpython-314.pyc
+|   |           apa.cpython-314.pyc
+|   |           auth.cpython-314.pyc
+|   |           pagos.cpython-314.pyc
+|   |           __init__.cpython-314.pyc
+|   |           
+|   +---uploads
+|   |       4a3a4311-1cdd-4b14-bb25-fb0550162ac5_Estudiar_-_Metodologia_Expo.docx
+|   |       9f40f204-348b-4fd5-a972-f8a783bf447f_Estudiar_-_Metodologia_Expo.docx
+|   |       a1f93fa4-536a-4be3-ba07-a35e589fa66c_Estudiar_-_Metodologia_Expo.docx
+|   |       
+|   +---venv
+|   \---__pycache__
+|           main.cpython-314.pyc
+|           
+\---frontend
+    |   .gitignore
+    |   env.production
+    |   eslint.config.js
+    |   index.html
+    |   package-lock.json
+    |   package.json
+    |   postcss.config.js
+    |   README.md
+    |   tailwind.config.js
+    |   vite.config.js
+    |   
+    +---node_modules
+    +---public
+    |       binance.png
+    |       favicon.png
+    |       LOGO.png
+    |       LOGO2.png
+    |       robots.txt
+    |       
+    \---src
+        |   api.js
+        |   App.css
+        |   App.jsx
+        |   i18n.js
+        |   index.css
+        |   main.jsx
+        |   
+        +---assets
+        |       react.svg
+        |       
+        +---components
+        |   |   Ads.jsx
+        |   |   DocumentPreview.jsx
+        |   |   Footer.jsx
+        |   |   Navbar.jsx
+        |   |   ParagraphCard.jsx
+        |   |   PlanBadge.jsx
+        |   |   
+        |   \---ads
+        +---locales
+        |       en.json
+        |       es.json
+        |       
+        \---pages
+                AdminPanel.jsx
+                Auth.jsx
+                Editor.jsx
+                Landing.jsx
+                PaymentSuccess.jsx
+                Profile.jsx
+                Support.jsx
+                Tools.jsx
+                Upgrade.jsx
+                

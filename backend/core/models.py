@@ -166,3 +166,18 @@ class PagoMovilTransaction(Base):
     created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
 
     user = relationship("User")
+
+# ─────────────────────────────────────────────
+# SUSCRIPCIONES PUSH (PWA)
+# ─────────────────────────────────────────────
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    endpoint = Column(String(500), nullable=False)
+    p256dh = Column(String(255), nullable=False)
+    auth = Column(String(100), nullable=False)
+    created_at = Column(TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
+
+    user = relationship("User")
