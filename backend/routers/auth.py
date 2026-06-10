@@ -17,7 +17,7 @@ from core.models import User, PagoMovilTransaction
 from core.auth import get_password_hash, verify_password, create_access_token
 from core.token_service import get_available_tokens
 from core.dependencies import get_current_user
-from core.schemas import UserCreate, UserLogin, GoogleAuthRequest, ChangePasswordRequest
+from core.schemas import UserCreate, UserLogin, GoogleAuthRequest, ChangePasswordRequest, UpdateProfileRequest
 from core.limiter import limiter
 
 router = APIRouter()
@@ -100,6 +100,21 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
 @router.get("/user/me")
 def get_user_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return _get_user_dict(current_user, db)
+
+
+@router.put("/user/me")
+def update_user_me(
+    data: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.first_name = data.firstName
+    current_user.last_name = data.lastName
+    current_user.phone = data.phone
+    current_user.country = data.country
+    db.commit()
+    db.refresh(current_user)
+    return {"status": "success", "user": _get_user_dict(current_user, db)}
 
 
 @router.post("/login")

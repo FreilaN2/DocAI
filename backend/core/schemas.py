@@ -42,6 +42,13 @@ class UserCreate(BaseModel):
     password: str
 
 
+class UpdateProfileRequest(BaseModel):
+    firstName: str
+    lastName: str
+    phone: str
+    country: str
+
+
 class UserLogin(BaseModel):
     email: str
     password: str
