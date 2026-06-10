@@ -89,6 +89,46 @@ export default function NotFound() {
   const { t } = useTranslation();
   const canvasRef = useRef(null);
 
+  // Leer tema actual desde localStorage (misma fuente que el Navbar)
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+  useEffect(() => {
+    // Sincronizar si el usuario cambia el tema mientras está en el 404
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Paleta según tema
+  const c = isDark ? {
+    bg:            'linear-gradient(135deg, #0a0a0f 0%, #12111a 50%, #0f0a0a 100%)',
+    h1:            '#ffffff',
+    p:             'rgba(255,255,255,0.5)',
+    footerC:       'rgba(255,255,255,0.2)',
+    btnBackBg:     'rgba(255,107,0,0.07)',
+    btnBackBorder: '1.5px solid rgba(255,107,0,0.35)',
+    btnBackColor:  '#ff8c33',
+    chipBg:        'rgba(255,255,255,0.04)',
+    chipBorder:    '1px solid rgba(255,255,255,0.1)',
+    chipColor:     'rgba(255,255,255,0.6)',
+  } : {
+    bg:            'linear-gradient(135deg, #fff7f0 0%, #fef3ec 50%, #fff9f5 100%)',
+    h1:            '#1a0f05',
+    p:             'rgba(30,15,5,0.55)',
+    footerC:       'rgba(30,15,5,0.3)',
+    btnBackBg:     'rgba(255,107,0,0.06)',
+    btnBackBorder: '1.5px solid rgba(255,107,0,0.3)',
+    btnBackColor:  '#a04100',
+    chipBg:        'rgba(255,107,0,0.05)',
+    chipBorder:    '1px solid rgba(255,107,0,0.15)',
+    chipColor:     'rgba(100,50,10,0.7)',
+  };
+
   // Grid animada de fondo
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,29 +136,19 @@ export default function NotFound() {
     const ctx = canvas.getContext('2d');
     let animId;
     let offset = 0;
-
     const draw = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       const step = 60;
       ctx.strokeStyle = 'rgba(255,107,0,0.06)';
       ctx.lineWidth = 1;
-
       for (let x = (offset % step) - step; x < canvas.width + step; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
       }
       for (let y = (offset % step) - step; y < canvas.height + step; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
       }
-
       offset += 0.3;
       animId = requestAnimationFrame(draw);
     };
@@ -138,7 +168,7 @@ export default function NotFound() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a0a0f 0%, #12111a 50%, #0f0a0a 100%)',
+      background: c.bg,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -226,7 +256,7 @@ export default function NotFound() {
           transition={{ delay: 0.3 }}
           style={{
             fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800,
-            color: '#ffffff', marginBottom: '12px', lineHeight: 1.2,
+            color: c.h1, marginBottom: '12px', lineHeight: 1.2,
           }}
         >
           {t('not_found.title')}
@@ -237,7 +267,7 @@ export default function NotFound() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
           style={{
-            fontSize: 'clamp(14px, 2vw, 17px)', color: 'rgba(255,255,255,0.5)',
+            fontSize: 'clamp(14px, 2vw, 17px)', color: c.p,
             lineHeight: 1.6, marginBottom: '40px', maxWidth: '440px',
           }}
         >
@@ -277,9 +307,9 @@ export default function NotFound() {
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               padding: '14px 28px', borderRadius: '14px',
-              border: '1.5px solid rgba(255,107,0,0.35)',
-              background: 'rgba(255,107,0,0.07)',
-              color: '#ff8c33', fontWeight: 700, fontSize: '15px',
+              border: c.btnBackBorder,
+              background: c.btnBackBg,
+              color: c.btnBackColor, fontWeight: 700, fontSize: '15px',
               cursor: 'pointer', backdropFilter: 'blur(8px)',
               fontFamily: '"Inter", "Segoe UI", sans-serif',
             }}
@@ -307,9 +337,9 @@ export default function NotFound() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
                   padding: '8px 16px', borderRadius: '20px',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  background: 'rgba(255,255,255,0.04)',
-                  color: 'rgba(255,255,255,0.6)', fontSize: '13px', fontWeight: 600,
+                  border: c.chipBorder,
+                  background: c.chipBg,
+                  color: c.chipColor, fontSize: '13px', fontWeight: 600,
                   cursor: 'pointer', transition: 'all 0.2s',
                 }}
               >
@@ -328,7 +358,7 @@ export default function NotFound() {
         transition={{ delay: 1 }}
         style={{
           position: 'absolute', bottom: '24px',
-          color: 'rgba(255,255,255,0.2)', fontSize: '12px',
+          color: c.footerC, fontSize: '12px',
         }}
       >
         © 2026 DocIA · {t('not_found.error_code')}: 404
