@@ -129,7 +129,25 @@
     "google_error": "Error al iniciar sesión con Google",
     "account_created": "¡Cuenta creada con éxito! Bienvenido a DocAI.",
     "welcome": "¡Bienvenido!",
-    "unexpected_error": "Ocurrió un error inesperado"
+    "unexpected_error": "Ocurrió un error inesperado",
+    "pwd_requirements": "Requisitos",
+    "pwd_secure": "Contraseña segura",
+    "pwd_min_length": "Mínimo 8 caracteres",
+    "pwd_uppercase": "1 letra mayúscula",
+    "pwd_number": "1 número",
+    "pwd_special": "1 caracter especial",
+    "error_name_invalid": "El nombre y apellido solo deben contener letras.",
+    "error_country_required": "Por favor, selecciona tu país de residencia.",
+    "error_passwords_mismatch": "Las contraseñas no coinciden.",
+    "error_password_weak": "La contraseña no cumple los requisitos mínimos de seguridad."
+  },
+  "not_found": {
+    "title": "Página no encontrada",
+    "desc": "La ruta que buscas no existe o fue movida. Puede que el enlace esté roto o hayas escrito la dirección incorrecta.",
+    "go_home": "Ir al inicio",
+    "go_back": "Volver atrás",
+    "support": "Soporte",
+    "error_code": "Código de error"
   },
   "payment": {
     "processing": "Procesando pago...",

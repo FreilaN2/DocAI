@@ -13,7 +13,8 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import Support from './pages/Support';
 import Tools from './pages/Tools';
 import AdminPanel from './pages/AdminPanel';
-import InstallPWA from './components/InstallPWA'
+import InstallPWA from './components/InstallPWA';
+import NotFound from './pages/NotFound';
 
 function App() {
   // Efecto polling de usuario y pagos
@@ -114,6 +115,7 @@ function App() {
         <Route path="/tools" element={<Tools />} />
         <Route path="/pago/exitoso" element={<PaymentSuccess />} />
         <Route path="/panel" element={<AdminPanel />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   );

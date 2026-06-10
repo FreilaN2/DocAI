@@ -128,7 +128,25 @@
     "google_error": "Error logging in with Google",
     "account_created": "Account successfully created! Welcome to DocAI.",
     "welcome": "Welcome!",
-    "unexpected_error": "An unexpected error occurred"
+    "unexpected_error": "An unexpected error occurred",
+    "pwd_requirements": "Requirements",
+    "pwd_secure": "Password is secure",
+    "pwd_min_length": "At least 8 characters",
+    "pwd_uppercase": "1 uppercase letter",
+    "pwd_number": "1 number",
+    "pwd_special": "1 special character",
+    "error_name_invalid": "First and last name must contain letters only.",
+    "error_country_required": "Please select your country of residence.",
+    "error_passwords_mismatch": "Passwords do not match.",
+    "error_password_weak": "Password does not meet the minimum security requirements."
+  },
+  "not_found": {
+    "title": "Page not found",
+    "desc": "The route you are looking for does not exist or has been moved. The link may be broken or you may have typed the address incorrectly.",
+    "go_home": "Go home",
+    "go_back": "Go back",
+    "support": "Support",
+    "error_code": "Error code"
   },
   "payment": {
     "processing": "Processing payment...",

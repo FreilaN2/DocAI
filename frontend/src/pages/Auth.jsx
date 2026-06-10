@@ -268,17 +268,29 @@ export default function Auth() {
     if (!isLogin) {
       const nameRegex = /^[A-Za-zÁÉÍÓÚáéíóúÑñ\s]+$/;
       if (!nameRegex.test(formData.firstName) || !nameRegex.test(formData.lastName)) {
-        setError("El nombre y apellido solo deben contener letras.");
+        setError(t('auth.error_name_invalid'));
         setLoading(false);
         return;
       }
       if (!formData.country) {
-        setError("Por favor, selecciona tu país de residencia.");
+        setError(t('auth.error_country_required'));
         setLoading(false);
         return;
       }
       if (formData.password !== formData.confirmPassword) {
-        setError("Las contraseñas no coinciden.");
+        setError(t('auth.error_passwords_mismatch'));
+        setLoading(false);
+        return;
+      }
+      // Validar requisitos de la contraseña
+      const pwdReqs = {
+        length:  formData.password.length >= 8,
+        upper:   /[A-Z]/.test(formData.password),
+        number:  /[0-9]/.test(formData.password),
+        special: /[^A-Za-z0-9]/.test(formData.password),
+      };
+      if (!pwdReqs.length || !pwdReqs.upper || !pwdReqs.number || !pwdReqs.special) {
+        setError(t('auth.error_password_weak'));
         setLoading(false);
         return;
       }
@@ -605,6 +617,40 @@ export default function Auth() {
                 </div>
               </div>
 
+              {/* Indicador de requisitos de contraseña — solo en registro */}
+              {!isLogin && formData.password.length > 0 && (() => {
+                const reqs = [
+                  { ok: formData.password.length >= 8,            label: t('auth.pwd_min_length') },
+                  { ok: /[A-Z]/.test(formData.password),          label: t('auth.pwd_uppercase') },
+                  { ok: /[0-9]/.test(formData.password),          label: t('auth.pwd_number') },
+                  { ok: /[^A-Za-z0-9]/.test(formData.password),   label: t('auth.pwd_special') },
+                ];
+                const allOk = reqs.every(r => r.ok);
+                return (
+                  <div style={{
+                    background: allOk ? 'rgba(22,163,74,0.08)' : 'rgba(239,68,68,0.06)',
+                    border: `1px solid ${allOk ? 'rgba(22,163,74,0.3)' : 'rgba(239,68,68,0.2)'}`,
+                    borderRadius: '10px',
+                    padding: '10px 14px',
+                    marginTop: '6px',
+                    transition: 'all 0.2s',
+                  }}>
+                    <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: allOk ? '#16a34a' : '#6b7280', marginBottom: '6px' }}>
+                      {allOk ? `✅ ${t('auth.pwd_secure')}` : t('auth.pwd_requirements')}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                      {reqs.map((r, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '13px', color: r.ok ? '#16a34a' : '#d1d5db', flexShrink: 0, transition: 'color 0.2s' }}>
+                            {r.ok ? 'check_circle' : 'radio_button_unchecked'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: r.ok ? '#16a34a' : '#9ca3af', transition: 'color 0.2s' }}>{r.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <AnimatePresence mode="wait">
                 {!isLogin && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}
