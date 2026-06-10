@@ -1,368 +1,465 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
-// ── Partícula flotante ────────────────────────────────────────────────────────
-function Particle({ x, y, size, duration, delay, color }) {
-  return (
-    <motion.div
-      style={{
-        position: 'absolute',
-        left: `${x}%`,
-        top: `${y}%`,
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: color,
-        filter: 'blur(1px)',
-        pointerEvents: 'none',
-      }}
-      animate={{
-        y: [0, -30, 0],
-        opacity: [0.2, 0.8, 0.2],
-        scale: [1, 1.4, 1],
-      }}
-      transition={{ duration, delay, repeat: Infinity, ease: 'easeInOut' }}
-    />
-  );
-}
-
-// ── Dígito animado ─────────────────────────────────────────────────────────
-function GlitchDigit({ digit, color }) {
-  const [glitching, setGlitching] = useState(false);
+// ═══════════════════════════════════════════════════════════
+// FIX CRÍTICO: Detectar dispositivos de bajo rendimiento
+// ═══════════════════════════════════════════════════════════
+function useLowPerformance() {
+  const [isLowPerf, setIsLowPerf] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setGlitching(true);
-      setTimeout(() => setGlitching(false), 200);
-    }, 3000 + Math.random() * 2000);
-    return () => clearInterval(interval);
+    // Detectar GPU débil / dispositivos móviles
+    const checkPerformance = () => {
+      // 1. Memoria del dispositivo (si está disponible)
+      if ('deviceMemory' in navigator && navigator.deviceMemory < 4) {
+        return true;
+      }
+      
+      // 2. Número de núcleos lógicos
+      if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+        return true;
+      }
+      
+      // 3. ¿Es móvil?
+      if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        return true;
+      }
+      
+      // 4. Pantalla pequeña (probable móvil/tablet)
+      if (window.innerWidth < 1024) {
+        return true;
+      }
+      
+      return false;
+    };
+    
+    setIsLowPerf(checkPerformance());
   }, []);
 
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
+  return isLowPerf;
+}
+
+// ═══════════════════════════════════════════════════════════
+// FIX #1: Canvas ELIMINADO completamente (mayor consumidor de GPU)
+// ═══════════════════════════════════════════════════════════
+// En su lugar, usamos un fondo estático con CSS
+
+// ═══════════════════════════════════════════════════════════
+// FIX #2: Partículas ELIMINADAS (consumen CPU por animaciones)
+// ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+// FIX #3: GlitchDigit SIMPLIFICADO (sin efectos de texto fantasma)
+// ═══════════════════════════════════════════════════════════
+const GlitchDigit = React.memo(function GlitchDigit({ digit, color, enabled }) {
+  // Si está deshabilitado, solo muestra el dígito sin efectos
+  if (!enabled) {
+    return (
       <span
         style={{
-          fontSize: 'clamp(120px, 20vw, 220px)',
+          fontSize: 'clamp(80px, 15vw, 180px)',
           fontWeight: 900,
           lineHeight: 1,
           letterSpacing: '-0.04em',
-          color: 'transparent',
-          WebkitTextStroke: `3px ${color}`,
-          textShadow: glitching
-            ? `4px 0 #ff003c, -4px 0 #00d4ff, 0 0 40px ${color}80`
-            : `0 0 60px ${color}40, 0 0 120px ${color}20`,
-          transition: 'text-shadow 0.1s',
           display: 'block',
           userSelect: 'none',
           fontFamily: '"Inter", "Segoe UI", sans-serif',
+          color: 'transparent',
+          WebkitTextStroke: `2.5px ${color}`,
+          textShadow: `0 0 50px ${color}30`,
         }}
       >
         {digit}
       </span>
-      {glitching && (
-        <>
-          <span style={{
-            position: 'absolute', inset: 0,
-            fontSize: 'clamp(120px, 20vw, 220px)', fontWeight: 900,
-            lineHeight: 1, letterSpacing: '-0.04em',
-            color: '#ff003c', opacity: 0.6,
-            transform: 'translate(4px, -2px)',
-            fontFamily: '"Inter", "Segoe UI", sans-serif',
-          }}>{digit}</span>
-          <span style={{
-            position: 'absolute', inset: 0,
-            fontSize: 'clamp(120px, 20vw, 220px)', fontWeight: 900,
-            lineHeight: 1, letterSpacing: '-0.04em',
-            color: '#00d4ff', opacity: 0.6,
-            transform: 'translate(-4px, 2px)',
-            fontFamily: '"Inter", "Segoe UI", sans-serif',
-          }}>{digit}</span>
-        </>
+    );
+  }
+
+  // Versión con glitch (solo para desktop potentes)
+  return <GlitchDigitWithEffects digit={digit} color={color} />;
+});
+
+// Solo se usa en desktop de alto rendimiento
+const GlitchDigitWithEffects = React.memo(function GlitchDigitWithEffects({ digit, color }) {
+  const prefersReducedMotion = useReducedMotion();
+  const [glitching, setGlitching] = useState(false);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    
+    const triggerGlitch = () => {
+      setGlitching(true);
+      setTimeout(() => setGlitching(false), 150);
+    };
+    
+    const initialDelay = setTimeout(triggerGlitch, 3000 + Math.random() * 4000);
+    const interval = setInterval(triggerGlitch, 8000 + Math.random() * 5000); // Más espaciado
+    
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(interval);
+    };
+  }, [prefersReducedMotion]);
+
+  const baseStyle = useMemo(() => ({
+    fontSize: 'clamp(80px, 15vw, 180px)',
+    fontWeight: 900,
+    lineHeight: 1,
+    letterSpacing: '-0.04em',
+    display: 'block',
+    userSelect: 'none',
+    fontFamily: '"Inter", "Segoe UI", sans-serif',
+  }), []);
+
+  return (
+    <div className="glitch-digit-container relative">
+      <span style={{
+        ...baseStyle,
+        color: 'transparent',
+        WebkitTextStroke: `2.5px ${color}`,
+        textShadow: glitching 
+          ? `3px 0 #ff003c, -3px 0 #00d4ff, 0 0 35px ${color}70`
+          : `0 0 50px ${color}30, 0 0 100px ${color}15`,
+        transition: 'text-shadow 0.1s',
+      }}>
+        {digit}
+      </span>
+      {/* Solo un fantasma en lugar de dos */}
+      {glitching && !prefersReducedMotion && (
+        <span style={{
+          ...baseStyle,
+          position: 'absolute',
+          inset: 0,
+          color: '#ff003c',
+          opacity: 0.3,
+          transform: 'translate(3px, -2px)',
+        }} aria-hidden="true">
+          {digit}
+        </span>
       )}
     </div>
   );
-}
+});
 
-export default function NotFound() {
-  const { t } = useTranslation();
-  const canvasRef = useRef(null);
-
-  // Leer tema actual desde localStorage (misma fuente que el Navbar)
+// ═══════════════════════════════════════════════════════════
+// FIX #4: Tema SIMPLIFICADO (sin MutationObserver)
+// ═══════════════════════════════════════════════════════════
+function useTheme() {
   const [isDark, setIsDark] = useState(() => {
+    // Solo leer una vez al montar
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
-  useEffect(() => {
-    // Sincronizar si el usuario cambia el tema mientras está en el 404
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    });
-    observer.observe(document.documentElement, { attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
 
-  // Paleta según tema
-  const c = isDark ? {
-    bg:            'linear-gradient(135deg, #0a0a0f 0%, #12111a 50%, #0f0a0a 100%)',
-    h1:            '#ffffff',
-    p:             'rgba(255,255,255,0.5)',
-    footerC:       'rgba(255,255,255,0.2)',
-    btnBackBg:     'rgba(255,107,0,0.07)',
-    btnBackBorder: '1.5px solid rgba(255,107,0,0.35)',
-    btnBackColor:  '#ff8c33',
-    chipBg:        'rgba(255,255,255,0.04)',
-    chipBorder:    '1px solid rgba(255,255,255,0.1)',
-    chipColor:     'rgba(255,255,255,0.6)',
-  } : {
-    bg:            'linear-gradient(135deg, #fff7f0 0%, #fef3ec 50%, #fff9f5 100%)',
-    h1:            '#1a0f05',
-    p:             'rgba(30,15,5,0.55)',
-    footerC:       'rgba(30,15,5,0.3)',
-    btnBackBg:     'rgba(255,107,0,0.06)',
-    btnBackBorder: '1.5px solid rgba(255,107,0,0.3)',
-    btnBackColor:  '#a04100',
-    chipBg:        'rgba(255,107,0,0.05)',
-    chipBorder:    '1px solid rgba(255,107,0,0.15)',
-    chipColor:     'rgba(100,50,10,0.7)',
-  };
-
-  // Grid animada de fondo
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animId;
-    let offset = 0;
-    const draw = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const step = 60;
-      ctx.strokeStyle = 'rgba(255,107,0,0.06)';
-      ctx.lineWidth = 1;
-      for (let x = (offset % step) - step; x < canvas.width + step; x += step) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-      }
-      for (let y = (offset % step) - step; y < canvas.height + step; y += step) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
-      offset += 0.3;
-      animId = requestAnimationFrame(draw);
+    // Solo escuchar cambios de tema (menos frecuente que MutationObserver)
+    const handleStorage = (e) => {
+      if (e.key === 'theme') setIsDark(e.newValue === 'dark');
     };
-    draw();
-    return () => cancelAnimationFrame(animId);
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const particles = Array.from({ length: 18 }, (_, i) => ({
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: `${Math.random() * 6 + 2}px`,
-    duration: 3 + Math.random() * 4,
-    delay: Math.random() * 3,
-    color: i % 3 === 0 ? '#ff6b00' : i % 3 === 1 ? '#ff8c33' : '#a04100',
-  }));
+  return isDark;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Paletas memoizadas (sin cambios)
+// ═══════════════════════════════════════════════════════════
+const DARK_PALETTE = {
+  bg: '#0a0a0f',
+  h1: '#ffffff',
+  p: 'rgba(255,255,255,0.5)',
+  footerC: 'rgba(255,255,255,0.2)',
+  btnBackBg: 'rgba(255,107,0,0.07)',
+  btnBackBorder: '1.5px solid rgba(255,107,0,0.35)',
+  btnBackColor: '#ff8c33',
+  chipBg: 'rgba(255,255,255,0.04)',
+  chipBorder: '1px solid rgba(255,255,255,0.1)',
+  chipColor: 'rgba(255,255,255,0.6)',
+};
+
+const LIGHT_PALETTE = {
+  bg: '#fff7f0',
+  h1: '#1a0f05',
+  p: 'rgba(30,15,5,0.55)',
+  footerC: 'rgba(30,15,5,0.3)',
+  btnBackBg: 'rgba(255,107,0,0.06)',
+  btnBackBorder: '1.5px solid rgba(255,107,0,0.3)',
+  btnBackColor: '#a04100',
+  chipBg: 'rgba(255,107,0,0.05)',
+  chipBorder: '1px solid rgba(255,107,0,0.15)',
+  chipColor: 'rgba(100,50,10,0.7)',
+};
+
+// ═══════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL ULTRA-OPTIMIZADO
+// ═══════════════════════════════════════════════════════════
+export default function NotFound() {
+  const { t } = useTranslation();
+  const isDark = useTheme();
+  const prefersReducedMotion = useReducedMotion();
+  const isLowPerf = useLowPerformance();
+  
+  // Solo habilitar efectos en desktop potentes
+  const enableEffects = !isLowPerf && !prefersReducedMotion;
+  
+  const c = useMemo(() => isDark ? DARK_PALETTE : LIGHT_PALETTE, [isDark]);
+
+  const quickLinks = useMemo(() => [
+    { to: '/editor/free', icon: 'description', label: t('not_found.editor_free') || 'Editor Free' },
+    { to: '/editor/pro', icon: 'auto_awesome', label: t('not_found.editor_pro') || 'Editor Pro' },
+    { to: '/support', icon: 'help', label: t('not_found.support') || 'Soporte' },
+  ], [t]);
+
+  // Animación simplificada o nula según rendimiento
+  const containerProps = enableEffects
+    ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5 } }
+    : { initial: { opacity: 1 }, animate: { opacity: 1 } };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: c.bg,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-      overflow: 'hidden',
-      fontFamily: '"Inter", "Segoe UI", sans-serif',
-    }}>
-      {/* Grid canvas */}
-      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
-
-      {/* Orbes de luz de fondo */}
-      <div style={{
-        position: 'absolute', width: '600px', height: '600px', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,107,0,0.12) 0%, transparent 70%)',
-        top: '-100px', left: '-150px', pointerEvents: 'none',
-      }} />
-      <div style={{
-        position: 'absolute', width: '400px', height: '400px', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(160,65,0,0.1) 0%, transparent 70%)',
-        bottom: '-50px', right: '-100px', pointerEvents: 'none',
-      }} />
-
-      {/* Partículas flotantes */}
-      {particles.map((p, i) => <Particle key={i} {...p} />)}
-
-      {/* Contenido principal */}
+    <div 
+      style={{
+        minHeight: '100vh',
+        minHeight: '100dvh',
+        background: c.bg,
+        // FIX: Usar gradiente solo si hay efectos (más barato que el canvas)
+        backgroundImage: enableEffects 
+          ? `radial-gradient(ellipse at 20% 20%, rgba(255,107,0,0.04) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(160,65,0,0.03) 0%, transparent 50%)`
+          : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: '"Inter", "Segoe UI", sans-serif',
+        padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)',
+      }}
+    >
+      {/* Contenido principal - SIN canvas, SIN partículas, SIN orbes animados */}
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: 'easeOut' }}
+        {...containerProps}
         style={{
-          position: 'relative', zIndex: 10,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', textAlign: 'center',
-          padding: '0 24px', maxWidth: '700px',
+          position: 'relative',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          padding: '0 16px',
+          maxWidth: '700px',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
-        {/* Ícono de documento roto */}
-        <motion.div
-          animate={{ rotate: [-3, 3, -3] }}
-          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-          style={{ marginBottom: '16px' }}
-        >
-          <div style={{
-            width: '80px', height: '80px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, #ff6b00, #a04100)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 40px rgba(255,107,0,0.4), 0 8px 32px rgba(0,0,0,0.5)',
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '40px', color: '#fff' }}>
+        {/* Ícono ESTÁTICO (sin animación de rotación) */}
+        <div style={{ marginBottom: 'clamp(12px, 2vw, 16px)' }}>
+          <div 
+            style={{
+              width: 'clamp(56px, 10vw, 72px)',
+              height: 'clamp(56px, 10vw, 72px)',
+              borderRadius: 'clamp(12px, 2vw, 16px)',
+              background: 'linear-gradient(135deg, #ff6b00, #a04100)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 20px rgba(255,107,0,0.2), 0 4px 16px rgba(0,0,0,0.3)',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 'clamp(28px, 5vw, 36px)', color: '#fff' }}>
               broken_image
             </span>
           </div>
-        </motion.div>
+        </div>
 
-        {/* 404 con efecto glitch */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0px', marginBottom: '8px' }}>
-          <GlitchDigit digit="4" color="#ff6b00" />
-          <motion.div
-            animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <GlitchDigit digit="0" color="#ff8c33" />
-          </motion.div>
-          <GlitchDigit digit="4" color="#ff6b00" />
+        {/* 404 - Solo con efecto glitch si hay buen rendimiento */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 'clamp(0px, 1vw, 4px)', 
+          marginBottom: 'clamp(4px, 1vw, 8px)',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}>
+          <GlitchDigit digit="4" color="#ff6b00" enabled={enableEffects} />
+          <GlitchDigit digit="0" color="#ff8c33" enabled={enableEffects} />
+          <GlitchDigit digit="4" color="#ff6b00" enabled={enableEffects} />
         </div>
 
         {/* Línea decorativa */}
-        <motion.div
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
+        <div
           style={{
-            height: '2px', width: '200px', marginBottom: '28px',
+            height: '2px',
+            width: 'clamp(120px, 30vw, 180px)',
+            marginBottom: 'clamp(16px, 3vw, 24px)',
             background: 'linear-gradient(90deg, transparent, #ff6b00, #ff8c33, #ff6b00, transparent)',
             borderRadius: '2px',
           }}
         />
 
         {/* Textos */}
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+        <h1
           style={{
-            fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800,
-            color: c.h1, marginBottom: '12px', lineHeight: 1.2,
+            fontSize: 'clamp(18px, 3.5vw, 28px)',
+            fontWeight: 800,
+            color: c.h1,
+            marginBottom: 'clamp(8px, 1.5vw, 10px)',
+            lineHeight: 1.2,
+            padding: '0 8px',
           }}
         >
           {t('not_found.title')}
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
+        <p
           style={{
-            fontSize: 'clamp(14px, 2vw, 17px)', color: c.p,
-            lineHeight: 1.6, marginBottom: '40px', maxWidth: '440px',
+            fontSize: 'clamp(12px, 1.8vw, 16px)',
+            color: c.p,
+            lineHeight: 1.6,
+            marginBottom: 'clamp(24px, 4vw, 36px)',
+            maxWidth: '420px',
+            padding: '0 8px',
           }}
         >
           {t('not_found.desc')}
-        </motion.p>
+        </p>
 
-        {/* Botones de acción */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}
+        {/* Botones - SIN animaciones hover si bajo rendimiento */}
+        <div
+          style={{ 
+            display: 'flex', 
+            gap: 'clamp(8px, 2vw, 12px)', 
+            flexWrap: 'wrap', 
+            justifyContent: 'center',
+            width: '100%',
+            padding: '0 8px',
+          }}
         >
-          <Link to="/" style={{ textDecoration: 'none' }}>
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.97 }}
+          <Link to="/" style={{ textDecoration: 'none', flex: '1 1 auto', maxWidth: '250px' }}>
+            <button
               style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '14px 28px', borderRadius: '14px', border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 'clamp(6px, 1vw, 8px)',
+                padding: 'clamp(10px, 2vw, 13px) clamp(18px, 3vw, 26px)',
+                borderRadius: 'clamp(10px, 2vw, 14px)',
+                border: 'none',
                 background: 'linear-gradient(135deg, #ff6b00, #a04100)',
-                color: '#ffffff', fontWeight: 700, fontSize: '15px',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: 'clamp(13px, 2vw, 15px)',
                 cursor: 'pointer',
-                boxShadow: '0 4px 24px rgba(255,107,0,0.35), 0 2px 8px rgba(0,0,0,0.3)',
+                boxShadow: '0 4px 20px rgba(255,107,0,0.3), 0 2px 6px rgba(0,0,0,0.3)',
                 fontFamily: '"Inter", "Segoe UI", sans-serif',
+                width: '100%',
+                whiteSpace: 'nowrap',
+                transition: enableEffects ? 'transform 0.15s, opacity 0.15s' : 'none',
               }}
+              onMouseEnter={enableEffects ? (e) => e.currentTarget.style.transform = 'scale(1.03)' : undefined}
+              onMouseLeave={enableEffects ? (e) => e.currentTarget.style.transform = 'scale(1)' : undefined}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>home</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 'clamp(16px, 2.5vw, 18px)' }}>home</span>
               {t('not_found.go_home')}
-            </motion.button>
+            </button>
           </Link>
 
-          <motion.button
-            whileHover={{ scale: 1.04, y: -2 }}
-            whileTap={{ scale: 0.97 }}
+          <button
             onClick={() => window.history.back()}
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '14px 28px', borderRadius: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 'clamp(6px, 1vw, 8px)',
+              padding: 'clamp(10px, 2vw, 13px) clamp(18px, 3vw, 26px)',
+              borderRadius: 'clamp(10px, 2vw, 14px)',
               border: c.btnBackBorder,
               background: c.btnBackBg,
-              color: c.btnBackColor, fontWeight: 700, fontSize: '15px',
-              cursor: 'pointer', backdropFilter: 'blur(8px)',
+              color: c.btnBackColor,
+              fontWeight: 700,
+              fontSize: 'clamp(13px, 2vw, 15px)',
+              cursor: 'pointer',
+              backdropFilter: 'blur(8px)',
               fontFamily: '"Inter", "Segoe UI", sans-serif',
+              flex: '1 1 auto',
+              maxWidth: '250px',
+              whiteSpace: 'nowrap',
+              transition: enableEffects ? 'transform 0.15s' : 'none',
             }}
+            onMouseEnter={enableEffects ? (e) => e.currentTarget.style.transform = 'scale(1.03)' : undefined}
+            onMouseLeave={enableEffects ? (e) => e.currentTarget.style.transform = 'scale(1)' : undefined}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.97)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 'clamp(16px, 2.5vw, 18px)' }}>arrow_back</span>
             {t('not_found.go_back')}
-          </motion.button>
-        </motion.div>
+          </button>
+        </div>
 
-        {/* Links rápidos */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.8 }}
-          style={{ marginTop: '48px', display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}
+        {/* Quick links */}
+        <div
+          style={{
+            marginTop: 'clamp(28px, 5vw, 44px)',
+            display: 'flex',
+            gap: 'clamp(6px, 1.5vw, 8px)',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            padding: '0 8px',
+          }}
         >
-          {[
-            { to: '/editor/free', icon: 'description', label: 'Editor Free' },
-            { to: '/editor/pro', icon: 'auto_awesome', label: 'Editor Pro' },
-            { to: '/support', icon: 'help', label: t('not_found.support') },
-          ].map(link => (
+          {quickLinks.map(link => (
             <Link key={link.to} to={link.to} style={{ textDecoration: 'none' }}>
-              <motion.div
-                whileHover={{ background: 'rgba(255,107,0,0.12)', borderColor: 'rgba(255,107,0,0.4)' }}
+              <div
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '8px 16px', borderRadius: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'clamp(4px, 1vw, 6px)',
+                  padding: 'clamp(5px, 1vw, 7px) clamp(10px, 2vw, 15px)',
+                  borderRadius: 'clamp(16px, 3vw, 20px)',
                   border: c.chipBorder,
                   background: c.chipBg,
-                  color: c.chipColor, fontSize: '13px', fontWeight: 600,
-                  cursor: 'pointer', transition: 'all 0.2s',
+                  color: c.chipColor,
+                  fontSize: 'clamp(11px, 1.8vw, 13px)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: enableEffects ? 'all 0.2s' : 'none',
+                  whiteSpace: 'nowrap',
                 }}
+                onMouseEnter={enableEffects ? (e) => {
+                  e.currentTarget.style.background = 'rgba(255,107,0,0.12)';
+                  e.currentTarget.style.borderColor = 'rgba(255,107,0,0.4)';
+                } : undefined}
+                onMouseLeave={enableEffects ? (e) => {
+                  e.currentTarget.style.background = c.chipBg;
+                  e.currentTarget.style.borderColor = c.chipBorder.replace('1px solid ', '');
+                } : undefined}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{link.icon}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 'clamp(13px, 2vw, 15px)' }}>{link.icon}</span>
                 {link.label}
-              </motion.div>
+              </div>
             </Link>
           ))}
-        </motion.div>
+        </div>
       </motion.div>
 
-      {/* Footer minimal */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1 }}
+      {/* Footer */}
+      <p
         style={{
-          position: 'absolute', bottom: '24px',
-          color: c.footerC, fontSize: '12px',
+          position: 'absolute',
+          bottom: 'clamp(16px, 3vw, 24px)',
+          color: c.footerC,
+          fontSize: 'clamp(10px, 1.5vw, 12px)',
+          padding: '0 16px',
+          textAlign: 'center',
         }}
       >
         © 2026 DocIA · {t('not_found.error_code')}: 404
-      </motion.p>
+      </p>
     </div>
   );
 }
