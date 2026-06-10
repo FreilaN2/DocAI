@@ -311,6 +311,8 @@ async def generar_final(
         else:
             # Vaciar el body completo
             for child in reversed(doc.element.body):
+                if child.tag.endswith('sectPr'):
+                    continue
                 doc.element.body.remove(child)
             # Aplicar márgenes APA a la única sección
             section = doc.sections[0]
